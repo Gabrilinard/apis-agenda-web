@@ -9,15 +9,18 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+app.use(cors({
+  origin: 'https://fisiopilattes.netlify.app'
+}));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Conectar ao banco de dados
 const db = mysql.createConnection({
-  host: 'localhost',
+  host: 'trolley.proxy.rlwy.net',
+  port: '3306',
   user: 'root',
-  password: 'REDACTED',
-  database: 'agendamento',
+  password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
+  database: 'railway',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -26,10 +29,11 @@ const db = mysql.createConnection({
 module.exports = db;
 
 const dbCallback = mysql.createConnection({
-  host: 'localhost',
+  host: 'trolley.proxy.rlwy.net',
+  port: '3306',
   user: 'root',
-  password: 'REDACTED',
-  database: 'agendamento',
+  password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
+  database: 'railway',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -37,10 +41,11 @@ const dbCallback = mysql.createConnection({
 
 // Instância para promessas
 const dbPromise = mysql.createConnection({
-  host: 'localhost',
+  host: 'trolley.proxy.rlwy.net',
+  port: '3306',
   user: 'root',
-  password: 'REDACTED',
-  database: 'agendamento',
+  password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
+  database: 'railway',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
