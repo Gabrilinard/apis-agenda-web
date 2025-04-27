@@ -17,7 +17,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Conectar ao banco de dados
 const db = mysql.createConnection({
   host: 'trolley.proxy.rlwy.net',
-  port: '3306',
+  port: '29727',
   user: 'root',
   password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
   database: 'railway',
@@ -30,7 +30,7 @@ module.exports = db;
 
 const dbCallback = mysql.createConnection({
   host: 'trolley.proxy.rlwy.net',
-  port: '3306',
+  port: '29727',
   user: 'root',
   password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
   database: 'railway',
@@ -42,7 +42,7 @@ const dbCallback = mysql.createConnection({
 // Instância para promessas
 const dbPromise = mysql.createConnection({
   host: 'trolley.proxy.rlwy.net',
-  port: '3306',
+  port: '29727',
   user: 'root',
   password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
   database: 'railway',
