@@ -1,112 +1,89 @@
 const express = require('express');
 const multer = require('multer');
+const cors = require('cors');
 const mysql = require('mysql2');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const cors = require('cors');
 
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'https://fisiopilattes.netlify.app',
-  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true
-};
-
-// Apply CORS middleware first
-// ✅ Limpo e sem duplicação
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); 
-app.use(express.json()); // Espera application/json
-
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something broke!' });
-});
-
-// Add logging middleware
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`, {
-    body: req.body,
-    headers: req.headers
-  });
-  next();
-});
-
-// ✅ Conexão com banco
+// Conectar ao banco de dados
 const db = mysql.createConnection({
-  host: 'tramway.proxy.rlwy.net',
-  port: 21402,
+  host: 'localhost',
   user: 'root',
-  password: 'FcXZFeoBuICQMypirgQZiFcxIiiVCAjp',
-  database: 'railway',
+  password: 'REDACTED',
+  database: 'agendamento',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-const dbPromise = mysql.createConnection({
-  host: 'tramway.proxy.rlwy.net',
-  port: 21402,
+module.exports = db;
+
+const dbCallback = mysql.createConnection({
+  host: 'localhost',
   user: 'root',
-  password: 'FcXZFeoBuICQMypirgQZiFcxIiiVCAjp',
-  database: 'railway',
+  password: 'REDACTED',
+  database: 'agendamento',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+// Instância para promessas
+const dbPromise = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: 'REDACTED',
+  database: 'agendamento',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 }).promise();
 
+module.exports = { dbCallback, dbPromise };
+
 db.connect(err => {
-  if (err) {
-    console.error('Erro ao conectar ao banco:', err);
-  } else {
-    console.log('Banco conectado!');
-  }
+  if (err) console.error(err);
+  else console.log('Banco conectado!');
 });
 
-// ✅ Rota de registro com CORS e tratamento completo
+// 🔹 Registro de Usuário
 app.post('/register', async (req, res) => {
-  try {
     const { nome, sobrenome, telefone, email, senha } = req.body;
-
-    console.log('Received registration request:', { nome, sobrenome, email });
-
+  
+    console.log(req.body);  // Verifique os dados recebidos
+  
     if (!nome || !sobrenome || !email || !senha) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios!' });
     }
-
-    // Verifica se o email já existe
-    const [existingUsers] = await dbPromise.query(
-      'SELECT * FROM usuario WHERE email = ?', 
-      [email]
-    );
-
-    if (existingUsers.length > 0) {
-      return res.status(400).json({ error: 'Este email já está cadastrado' });
+  
+    try {
+      const hashedPassword = await bcrypt.hash(senha, 10);
+  
+      db.query(
+        'INSERT INTO usuario (nome, sobrenome, telefone, email, senha) VALUES (?, ?, ?, ?, ?)',
+        [nome, sobrenome, telefone, email, hashedPassword],
+        (err, results) => {
+          if (err) {
+            console.error('Erro ao registrar:', err);
+            return res.status(400).json({ error: `Erro ao registrar: ${err.sqlMessage}` });
+          }
+          console.log('Usuário registrado com sucesso', results);
+          res.json({ message: 'Usuário registrado com sucesso!', id: results.insertId });
+        }
+      );
+    } catch (error) {
+      console.error('Erro no servidor:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
+  });
 
-    const hashedPassword = await bcrypt.hash(senha, 10);
-
-    const [result] = await dbPromise.query(
-      'INSERT INTO usuario (nome, sobrenome, telefone, email, senha) VALUES (?, ?, ?, ?, ?)',
-      [nome, sobrenome, telefone, email, hashedPassword]
-    );
-
-    console.log('User registered successfully:', result);
-
-    return res.status(201).json({ 
-      message: 'Usuário registrado com sucesso!',
-      userId: result.insertId 
-    });
-
-  } catch (error) {
-    console.error('Server error:', error);
-    return res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
 
 // 🔹 Login de Usuário
 app.post('/login', (req, res) => {
@@ -437,7 +414,7 @@ app.patch('/api/reset-password/:id', async (req, res) => {
 });
   
 // Inicia o servidor
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+const port = process.env.PORT || 4000;
+app.listen(port, () => {
+  console.log(`Servidor rodando na porta ${port}`);
 });
