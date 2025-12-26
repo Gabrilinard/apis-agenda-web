@@ -75,31 +75,29 @@ app.post('/register', async (req, res) => {
       email, 
       senha, 
       tipoUsuario, 
-      fazParteEmpresa, 
-      nomeEmpresa, 
       tipoProfissional, 
+      especialidadeMedica,
       profissaoCustomizada
     } = req.body;
   
     console.log('=== DADOS RECEBIDOS NO REGISTRO ===');
     console.log('req.body completo:', JSON.stringify(req.body, null, 2));
-    console.log('fazParteEmpresa:', fazParteEmpresa, 'tipo:', typeof fazParteEmpresa);
-    console.log('nomeEmpresa:', nomeEmpresa);
     console.log('tipoUsuario:', tipoUsuario);
   
     if (!nome || !sobrenome || !email || !senha) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios!' });
     }
-
+    
     if (tipoUsuario === 'profissional') {
-      if (fazParteEmpresa === undefined || fazParteEmpresa === null) {
-        return res.status(400).json({ error: 'Informe se faz parte de uma empresa.' });
-      }
-      if (fazParteEmpresa && (!nomeEmpresa || !nomeEmpresa.trim())) {
-        return res.status(400).json({ error: 'Nome da empresa é obrigatório quando faz parte de uma empresa.' });
-      }
       if (!tipoProfissional) {
         return res.status(400).json({ error: 'Tipo de profissional é obrigatório.' });
+      }
+      const tiposValidos = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo', 'outros'];
+      if (!tiposValidos.includes(tipoProfissional)) {
+        return res.status(400).json({ error: 'Tipo de profissional inválido.' });
+      }
+      if (tipoProfissional === 'medico' && (!especialidadeMedica || !especialidadeMedica.trim())) {
+        return res.status(400).json({ error: 'Especialidade médica é obrigatória para médicos.' });
       }
       if (tipoProfissional === 'outros' && (!profissaoCustomizada || !profissaoCustomizada.trim())) {
         return res.status(400).json({ error: 'Profissão customizada é obrigatória quando selecionar "Outros".' });
@@ -115,24 +113,30 @@ app.post('/register', async (req, res) => {
 
       query += ', tipoUsuario';
       placeholders += ', ?';
-      values.push(tipoUsuario || 'cliente');
+      values.push(tipoUsuario || 'paciente');
 
       if (tipoUsuario === 'profissional') {
-        query += ', fazParteEmpresa, nomeEmpresa, tipoProfissional, profissaoCustomizada';
-        placeholders += ', ?, ?, ?, ?';
-        values.push(
-          fazParteEmpresa ? 1 : 0,
-          fazParteEmpresa ? nomeEmpresa : null,
-          tipoProfissional,
-          tipoProfissional === 'outros' ? profissaoCustomizada : null
-        );
+        query += ', tipoProfissional';
+        placeholders += ', ?';
+
+        const tipoProfissionalFinal = tipoProfissional === 'medico' 
+          ? especialidadeMedica 
+          : (tipoProfissional === 'outros' ? profissaoCustomizada : tipoProfissional);
+        values.push(tipoProfissionalFinal);
       }
 
       query += `) VALUES (${placeholders})`;
 
+      console.log('=== EXECUTANDO QUERY ===');
+      console.log('Query:', query);
+      console.log('Values:', values);
+
       db.query(query, values, async (err, results) => {
         if (err) {
-          console.error('Erro ao registrar:', err);
+          console.error('=== ERRO AO REGISTRAR ===');
+          console.error('Erro completo:', err);
+          console.error('Código do erro:', err.code);
+          console.error('Mensagem do erro:', err.sqlMessage);
           if (err.code === 'ER_BAD_FIELD_ERROR') {
             console.log('Colunas de profissional não existem, inserindo apenas campos básicos...');
             db.query(
@@ -140,10 +144,11 @@ app.post('/register', async (req, res) => {
               [nome, sobrenome, telefone, email, hashedPassword],
               (err2, results2) => {
                 if (err2) {
-                  console.error('Erro ao registrar:', err2);
+                  console.error('Erro ao registrar (fallback):', err2);
                   return res.status(400).json({ error: `Erro ao registrar: ${err2.sqlMessage}` });
                 }
                 console.log('Usuário registrado com sucesso (sem campos profissionais)', results2);
+                console.log('ID inserido:', results2.insertId);
                 res.json({ message: 'Usuário registrado com sucesso!', id: results2.insertId });
               }
             );
@@ -152,86 +157,11 @@ app.post('/register', async (req, res) => {
           }
         } else {
           const userId = results.insertId;
-          console.log('Usuário criado com ID:', userId);
-          console.log('Dados recebidos - tipoUsuario:', tipoUsuario, 'fazParteEmpresa:', fazParteEmpresa, 'nomeEmpresa:', nomeEmpresa);
+          console.log('=== USUÁRIO CRIADO COM SUCESSO ===');
+          console.log('ID do usuário criado:', userId);
+          console.log('Resultados:', results);
           
-          // Se for profissional e faz parte de empresa, criar/associar empresa
-          const fazParteEmpresaBool = fazParteEmpresa === true || fazParteEmpresa === 1 || fazParteEmpresa === '1' || fazParteEmpresa === 'true';
-          console.log('Verificando condições - tipoUsuario:', tipoUsuario, 'fazParteEmpresaBool:', fazParteEmpresaBool, 'nomeEmpresa:', nomeEmpresa);
-          if (tipoUsuario === 'profissional' && fazParteEmpresaBool && nomeEmpresa && nomeEmpresa.trim()) {
-            console.log('Processando empresa:', nomeEmpresa, 'fazParteEmpresaBool:', fazParteEmpresaBool);
-            
-            // Verifica se a empresa já existe
-            db.query('SELECT id FROM empresas WHERE nome = ?', [nomeEmpresa], (errEmpresa, empresaResults) => {
-              if (errEmpresa) {
-                console.error('Erro ao verificar empresa:', errEmpresa);
-                // Se a tabela não existir, tenta criar
-                if (errEmpresa.code === 'ER_NO_SUCH_TABLE') {
-                  console.log('Tabela empresas não existe. Execute a migration primeiro.');
-                }
-                return res.json({ message: 'Usuário registrado com sucesso!', id: userId });
-              }
-              
-              let empresaId;
-              
-              if (empresaResults.length > 0) {
-                // Empresa já existe, usa o ID existente
-                empresaId = empresaResults[0].id;
-                console.log('Empresa já existe com ID:', empresaId);
-                
-                // Atualiza usuario com empresa_id existente
-                db.query(
-                  'UPDATE usuario SET empresa_id = ? WHERE id = ?',
-                  [empresaId, userId],
-                  (errUpdate) => {
-                    if (errUpdate) {
-                      console.error('Erro ao associar empresa:', errUpdate);
-                    } else {
-                      console.log('Usuário associado à empresa existente');
-                    }
-                    res.json({ message: 'Usuário registrado com sucesso!', id: userId });
-                  }
-                );
-              } else {
-                // Cria nova empresa
-                console.log('Criando nova empresa:', nomeEmpresa);
-                db.query(
-                  'INSERT INTO empresas (nome, usuario_criador_id) VALUES (?, ?)',
-                  [nomeEmpresa, userId],
-                  (errCreate, createResults) => {
-                    if (errCreate) {
-                      console.error('Erro ao criar empresa:', errCreate);
-                      return res.json({ message: 'Usuário registrado com sucesso!', id: userId });
-                    }
-                    
-                    empresaId = createResults.insertId;
-                    console.log('Empresa criada com ID:', empresaId);
-                    
-                    // Atualiza usuario com empresa_id
-                    db.query(
-                      'UPDATE usuario SET empresa_id = ? WHERE id = ?',
-                      [empresaId, userId],
-                      (errUpdate) => {
-                        if (errUpdate) {
-                          console.error('Erro ao associar empresa:', errUpdate);
-                        } else {
-                          console.log('Usuário associado à nova empresa');
-                        }
-                        res.json({ message: 'Usuário registrado com sucesso!', id: userId });
-                      }
-                    );
-                  }
-                );
-              }
-            });
-          } else {
-            console.log('=== NÃO ENTROU NA CONDIÇÃO DE CRIAR EMPRESA ===');
-            console.log('tipoUsuario === profissional?', tipoUsuario === 'profissional');
-            console.log('fazParteEmpresaBool?', fazParteEmpresaBool);
-            console.log('nomeEmpresa existe e não vazio?', nomeEmpresa && nomeEmpresa.trim());
-            console.log('Usuário registrado com sucesso (não é profissional com empresa)', results);
-            res.json({ message: 'Usuário registrado com sucesso!', id: userId });
-          }
+          res.json({ message: 'Usuário registrado com sucesso!', id: userId });
         }
       });
     } catch (error) {
@@ -261,7 +191,7 @@ app.post('/login', (req, res) => {
         sobrenome: user.sobrenome, 
         telefone: user.telefone,
         email: user.email,
-        tipoUsuario: user.tipoUsuario || 'cliente'
+        tipoUsuario: user.tipoUsuario || 'paciente'
       } 
     });
   });
@@ -334,7 +264,7 @@ app.get('/reservas', (req, res) => {
 
   app.patch('/reservas/:id', (req, res) => {
     const agendamentoId = req.params.id;
-    const { status } = req.body; // No seu caso, deve ser o "status", não "horario"
+    const { status } = req.body; 
     
     if (!status) {
       return res.status(400).json({ error: 'Status é obrigatório' });
@@ -400,11 +330,10 @@ app.get('/reservas', (req, res) => {
   });
 
   app.put('/reservas/solicitar/:id', (req, res) => {
-    const reservaId = req.params.id; // Obtém o ID da reserva
-    const { motivoFalta } = req.body; // Obtém o motivo da falta do corpo da requisição
+    const reservaId = req.params.id;
+    const { motivoFalta } = req.body; 
     const novoStatus = 'ausente';
 
-    // Atualiza o status e o motivo da falta
     const sql = 'UPDATE reservas SET status = ?, motivoFalta = ? WHERE id = ?';
     db.query(sql, [novoStatus, motivoFalta, reservaId], (err, result) => {
         if (err) {
@@ -477,10 +406,18 @@ app.patch('/reservas/editar/:id', async (req, res) => {
     }
 });
 
-// Rota para pegar usuários logados
 app.get('/usuarios/logados', (req, res) => {
-  // Consulta SQL para pegar os usuários logados
-  const query = 'SELECT id, nome, sobrenome, telefone, email FROM usuario;';
+  const query = `
+    SELECT DISTINCT 
+      u.id, 
+      u.nome, 
+      u.sobrenome, 
+      u.telefone, 
+      u.email 
+    FROM usuario u
+    INNER JOIN reservas r ON u.id = r.usuario_id
+    ORDER BY u.nome ASC;
+  `;
 
   db.query(query, (err, results) => {
     if (err) {
@@ -488,7 +425,6 @@ app.get('/usuarios/logados', (req, res) => {
       return res.status(500).send('Erro ao buscar usuários logados');
     }
 
-    // Retorna os resultados como resposta JSON
     res.json(results);
   });
 });
@@ -513,12 +449,101 @@ app.get('/usuarios/solicitarDados/:id', (req, res) => {
   });
 });
 
+app.get('/profissionais', (req, res) => {
+  const query = `
+    SELECT 
+      u.id,
+      CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
+      u.tipoProfissional,
+      u.email,
+      u.telefone
+    FROM usuario u
+    WHERE u.tipoUsuario = 'profissional' 
+      AND (u.empresa_id IS NULL OR u.empresa_id = 0)
+    ORDER BY u.nome ASC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Erro ao buscar profissionais:', err);
+      return res.status(500).json({ error: 'Erro ao buscar profissionais' });
+    }
+    res.json(results);
+  });
+});
+
+app.get('/profissionais/:categoria', (req, res) => {
+  const { categoria } = req.params;
+  const categoriasValidas = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo'];
+  
+  if (!categoriasValidas.includes(categoria)) {
+    return res.status(400).json({ error: 'Categoria inválida' });
+  }
+
+  let query;
+  let queryParams;
+  
+  if (categoria === 'medico') {
+    const especialidadesMedicas = [
+      'Clínico Geral', 'Oftalmologista', 'Cardiologista', 'Dermatologista', 
+      'Pediatra', 'Ginecologista', 'Ortopedista', 'Neurologista', 'Psiquiatra',
+      'Endocrinologista', 'Gastroenterologista', 'Urologista', 'Otorrinolaringologista',
+      'Pneumologista', 'Reumatologista', 'Oncologista', 'Hematologista', 'Nefrologista',
+      'Anestesiologista', 'Radiologista', 'Patologista', 'Medicina do Trabalho',
+      'Medicina Esportiva', 'Geriatra', 'Mastologista', 'Proctologista', 'Angiologista',
+      'Cirurgião Geral', 'Cirurgião Plástico', 'Cirurgião Cardiovascular', 'Neurocirurgião',
+      'Cirurgião Pediátrico'
+    ];
+    
+    const placeholders = especialidadesMedicas.map(() => '?').join(', ');
+    
+    query = `
+      SELECT 
+        u.id,
+        CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
+        u.tipoProfissional,
+        u.email,
+        u.telefone
+      FROM usuario u
+      WHERE u.tipoUsuario = 'profissional' 
+        AND u.tipoProfissional IN (${placeholders})
+        AND (u.empresa_id IS NULL OR u.empresa_id = 0)
+      ORDER BY u.nome ASC
+    `;
+    queryParams = especialidadesMedicas;
+  } else {
+    query = `
+      SELECT 
+        u.id,
+        CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
+        u.tipoProfissional,
+        u.email,
+        u.telefone
+      FROM usuario u
+      WHERE u.tipoUsuario = 'profissional' 
+        AND LOWER(u.tipoProfissional) = ?
+        AND (u.empresa_id IS NULL OR u.empresa_id = 0)
+      ORDER BY u.nome ASC
+    `;
+    queryParams = [categoria];
+  }
+  
+  db.query(query, queryParams, (err, results) => {
+    if (err) {
+      console.error(`Erro ao buscar ${categoria}:`, err);
+      return res.status(500).json({ error: `Erro ao buscar ${categoria}` });
+    }
+    res.json(results);
+  });
+});
+
 app.get('/empresas', (req, res) => {
   const query = `
     SELECT 
       e.id,
       e.nome as nomeEmpresa,
       COUNT(DISTINCT u.id) as quantidadeProfissionais,
+      GROUP_CONCAT(DISTINCT CONCAT(u.nome, ' ', u.sobrenome) SEPARATOR ', ') as nomesProfissionais,
       GROUP_CONCAT(DISTINCT u.tipoProfissional) as tiposProfissionais
     FROM empresas e
     LEFT JOIN usuario u ON u.empresa_id = e.id
@@ -529,7 +554,6 @@ app.get('/empresas', (req, res) => {
   db.query(query, (err, results) => {
     if (err) {
       console.error('Erro ao buscar empresas:', err);
-      // Se a tabela empresas não existir, tenta buscar da forma antiga
       const fallbackQuery = `
         SELECT DISTINCT nomeEmpresa, 
                COUNT(*) as quantidadeProfissionais,

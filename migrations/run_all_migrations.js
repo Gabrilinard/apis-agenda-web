@@ -48,8 +48,8 @@ async function runMigration(fileName, description) {
       
       db.query(currentStatement + ';', (err, results) => {
         if (err) {
-          // Se for erro de coluna já existente, ignora
-          if (err.code === 'ER_DUP_FIELDNAME' || err.code === 'ER_DUP_KEYNAME' || err.code === 'ER_BAD_FIELD_ERROR') {
+          // Se for erro de coluna/constraint já existente, ignora
+          if (err.code === 'ER_DUP_FIELDNAME' || err.code === 'ER_DUP_KEYNAME' || err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_FK_DUP_NAME') {
             console.log(`⚠ Aviso: ${err.message} (ignorado)`);
             statementIndex++;
             return executeNext();
