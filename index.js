@@ -1,3 +1,4 @@
+/* eslint-env node */
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -10,17 +11,17 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-  origin: 'https://fisiopilattes.netlify.app'
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+  credentials: true
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Conectar ao banco de dados
 const db = mysql.createConnection({
-  host: 'trolley.proxy.rlwy.net',
-  port: '29727',
+  host: 'localhost',
+  port: 3306,
   user: 'root',
-  password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
-  database: 'railway',
+  password: 'REDACTED',
+  database: 'agendamento',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -29,23 +30,22 @@ const db = mysql.createConnection({
 module.exports = db;
 
 const dbCallback = mysql.createConnection({
-  host: 'trolley.proxy.rlwy.net',
-  port: '29727',
+  host: 'localhost',
+  port: 3306,
   user: 'root',
-  password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
-  database: 'railway',
+  password: 'REDACTED',
+  database: 'agendamento',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-// Instância para promessas
 const dbPromise = mysql.createConnection({
-  host: 'trolley.proxy.rlwy.net',
-  port: '29727',
+  host: 'localhost',
+  port: 3306,
   user: 'root',
-  password: 'tWsWbxeTXoDvpqCGKxtFWdQgXpfXnFYn',
-  database: 'railway',
+  password: 'REDACTED',
+  database: 'agendamento',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -53,36 +53,187 @@ const dbPromise = mysql.createConnection({
 
 module.exports = { dbCallback, dbPromise };
 
-db.connect(err => {
-  if (err) console.error(err);
-  else console.log('Banco conectado!');
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Servidor rodando na porta ${port}`);
 });
 
-// 🔹 Registro de Usuário
+db.connect(err => {
+  if (err) {
+    console.error('Erro ao conectar ao banco de dados:', err.message);
+    console.log('Servidor continuará rodando, mas operações de banco podem falhar.');
+  } else {
+    console.log('Banco conectado!');
+  }
+});
+
 app.post('/register', async (req, res) => {
-    const { nome, sobrenome, telefone, email, senha } = req.body;
+    const { 
+      nome, 
+      sobrenome, 
+      telefone, 
+      email, 
+      senha, 
+      tipoUsuario, 
+      fazParteEmpresa, 
+      nomeEmpresa, 
+      tipoProfissional, 
+      profissaoCustomizada
+    } = req.body;
   
-    console.log(req.body);  // Verifique os dados recebidos
+    console.log('=== DADOS RECEBIDOS NO REGISTRO ===');
+    console.log('req.body completo:', JSON.stringify(req.body, null, 2));
+    console.log('fazParteEmpresa:', fazParteEmpresa, 'tipo:', typeof fazParteEmpresa);
+    console.log('nomeEmpresa:', nomeEmpresa);
+    console.log('tipoUsuario:', tipoUsuario);
   
     if (!nome || !sobrenome || !email || !senha) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios!' });
     }
+
+    if (tipoUsuario === 'profissional') {
+      if (fazParteEmpresa === undefined || fazParteEmpresa === null) {
+        return res.status(400).json({ error: 'Informe se faz parte de uma empresa.' });
+      }
+      if (fazParteEmpresa && (!nomeEmpresa || !nomeEmpresa.trim())) {
+        return res.status(400).json({ error: 'Nome da empresa é obrigatório quando faz parte de uma empresa.' });
+      }
+      if (!tipoProfissional) {
+        return res.status(400).json({ error: 'Tipo de profissional é obrigatório.' });
+      }
+      if (tipoProfissional === 'outros' && (!profissaoCustomizada || !profissaoCustomizada.trim())) {
+        return res.status(400).json({ error: 'Profissão customizada é obrigatória quando selecionar "Outros".' });
+      }
+    }
   
     try {
       const hashedPassword = await bcrypt.hash(senha, 10);
-  
-      db.query(
-        'INSERT INTO usuario (nome, sobrenome, telefone, email, senha) VALUES (?, ?, ?, ?, ?)',
-        [nome, sobrenome, telefone, email, hashedPassword],
-        (err, results) => {
-          if (err) {
-            console.error('Erro ao registrar:', err);
+
+      let query = 'INSERT INTO usuario (nome, sobrenome, telefone, email, senha';
+      let values = [nome, sobrenome, telefone, email, hashedPassword];
+      let placeholders = '?, ?, ?, ?, ?';
+
+      query += ', tipoUsuario';
+      placeholders += ', ?';
+      values.push(tipoUsuario || 'cliente');
+
+      if (tipoUsuario === 'profissional') {
+        query += ', fazParteEmpresa, nomeEmpresa, tipoProfissional, profissaoCustomizada';
+        placeholders += ', ?, ?, ?, ?';
+        values.push(
+          fazParteEmpresa ? 1 : 0,
+          fazParteEmpresa ? nomeEmpresa : null,
+          tipoProfissional,
+          tipoProfissional === 'outros' ? profissaoCustomizada : null
+        );
+      }
+
+      query += `) VALUES (${placeholders})`;
+
+      db.query(query, values, async (err, results) => {
+        if (err) {
+          console.error('Erro ao registrar:', err);
+          if (err.code === 'ER_BAD_FIELD_ERROR') {
+            console.log('Colunas de profissional não existem, inserindo apenas campos básicos...');
+            db.query(
+              'INSERT INTO usuario (nome, sobrenome, telefone, email, senha) VALUES (?, ?, ?, ?, ?)',
+              [nome, sobrenome, telefone, email, hashedPassword],
+              (err2, results2) => {
+                if (err2) {
+                  console.error('Erro ao registrar:', err2);
+                  return res.status(400).json({ error: `Erro ao registrar: ${err2.sqlMessage}` });
+                }
+                console.log('Usuário registrado com sucesso (sem campos profissionais)', results2);
+                res.json({ message: 'Usuário registrado com sucesso!', id: results2.insertId });
+              }
+            );
+          } else {
             return res.status(400).json({ error: `Erro ao registrar: ${err.sqlMessage}` });
           }
-          console.log('Usuário registrado com sucesso', results);
-          res.json({ message: 'Usuário registrado com sucesso!', id: results.insertId });
+        } else {
+          const userId = results.insertId;
+          console.log('Usuário criado com ID:', userId);
+          console.log('Dados recebidos - tipoUsuario:', tipoUsuario, 'fazParteEmpresa:', fazParteEmpresa, 'nomeEmpresa:', nomeEmpresa);
+          
+          // Se for profissional e faz parte de empresa, criar/associar empresa
+          const fazParteEmpresaBool = fazParteEmpresa === true || fazParteEmpresa === 1 || fazParteEmpresa === '1' || fazParteEmpresa === 'true';
+          console.log('Verificando condições - tipoUsuario:', tipoUsuario, 'fazParteEmpresaBool:', fazParteEmpresaBool, 'nomeEmpresa:', nomeEmpresa);
+          if (tipoUsuario === 'profissional' && fazParteEmpresaBool && nomeEmpresa && nomeEmpresa.trim()) {
+            console.log('Processando empresa:', nomeEmpresa, 'fazParteEmpresaBool:', fazParteEmpresaBool);
+            
+            // Verifica se a empresa já existe
+            db.query('SELECT id FROM empresas WHERE nome = ?', [nomeEmpresa], (errEmpresa, empresaResults) => {
+              if (errEmpresa) {
+                console.error('Erro ao verificar empresa:', errEmpresa);
+                // Se a tabela não existir, tenta criar
+                if (errEmpresa.code === 'ER_NO_SUCH_TABLE') {
+                  console.log('Tabela empresas não existe. Execute a migration primeiro.');
+                }
+                return res.json({ message: 'Usuário registrado com sucesso!', id: userId });
+              }
+              
+              let empresaId;
+              
+              if (empresaResults.length > 0) {
+                // Empresa já existe, usa o ID existente
+                empresaId = empresaResults[0].id;
+                console.log('Empresa já existe com ID:', empresaId);
+                
+                // Atualiza usuario com empresa_id existente
+                db.query(
+                  'UPDATE usuario SET empresa_id = ? WHERE id = ?',
+                  [empresaId, userId],
+                  (errUpdate) => {
+                    if (errUpdate) {
+                      console.error('Erro ao associar empresa:', errUpdate);
+                    } else {
+                      console.log('Usuário associado à empresa existente');
+                    }
+                    res.json({ message: 'Usuário registrado com sucesso!', id: userId });
+                  }
+                );
+              } else {
+                // Cria nova empresa
+                console.log('Criando nova empresa:', nomeEmpresa);
+                db.query(
+                  'INSERT INTO empresas (nome, usuario_criador_id) VALUES (?, ?)',
+                  [nomeEmpresa, userId],
+                  (errCreate, createResults) => {
+                    if (errCreate) {
+                      console.error('Erro ao criar empresa:', errCreate);
+                      return res.json({ message: 'Usuário registrado com sucesso!', id: userId });
+                    }
+                    
+                    empresaId = createResults.insertId;
+                    console.log('Empresa criada com ID:', empresaId);
+                    
+                    // Atualiza usuario com empresa_id
+                    db.query(
+                      'UPDATE usuario SET empresa_id = ? WHERE id = ?',
+                      [empresaId, userId],
+                      (errUpdate) => {
+                        if (errUpdate) {
+                          console.error('Erro ao associar empresa:', errUpdate);
+                        } else {
+                          console.log('Usuário associado à nova empresa');
+                        }
+                        res.json({ message: 'Usuário registrado com sucesso!', id: userId });
+                      }
+                    );
+                  }
+                );
+              }
+            });
+          } else {
+            console.log('=== NÃO ENTROU NA CONDIÇÃO DE CRIAR EMPRESA ===');
+            console.log('tipoUsuario === profissional?', tipoUsuario === 'profissional');
+            console.log('fazParteEmpresaBool?', fazParteEmpresaBool);
+            console.log('nomeEmpresa existe e não vazio?', nomeEmpresa && nomeEmpresa.trim());
+            console.log('Usuário registrado com sucesso (não é profissional com empresa)', results);
+            res.json({ message: 'Usuário registrado com sucesso!', id: userId });
+          }
         }
-      );
+      });
     } catch (error) {
       console.error('Erro no servidor:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
@@ -90,7 +241,6 @@ app.post('/register', async (req, res) => {
   });
 
 
-// 🔹 Login de Usuário
 app.post('/login', (req, res) => {
   const { email, senha } = req.body;
   db.query('SELECT * FROM usuario WHERE email = ?', [email], async (err, results) => {
@@ -110,24 +260,23 @@ app.post('/login', (req, res) => {
         nome: user.nome, 
         sobrenome: user.sobrenome, 
         telefone: user.telefone,
-        email: user.email 
+        email: user.email,
+        tipoUsuario: user.tipoUsuario || 'cliente'
       } 
     });
   });
 })
 
-// 🔹 Obter Dados do Usuário
 app.get('/user/:id', (req, res) => {
   const { id } = req.params;
-  db.query('SELECT id, nome, email FROM usuario WHERE id = ?', [id], (err, results) => {
+  db.query('SELECT id, nome, email, tipoUsuario FROM usuario WHERE id = ?', [id], (err, results) => {
     if (err || results.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
     res.json(results[0]);
   });
 });
 
-// Rota para agendar um horário
 app.post('/reservas', (req, res) => {
-    console.log(req.body); // Verifique os dados recebidos
+    console.log(req.body); 
   
     const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id } = req.body;
 
@@ -142,7 +291,6 @@ app.post('/reservas', (req, res) => {
 });
 
   
-  // Rota para listar agendamentos
   app.get('/reservas/:id', (req, res) => {
     const userId = req.params.id;
     db.query('SELECT * FROM reservas WHERE usuario_id = ?', [userId], (err, results) => {
@@ -151,9 +299,8 @@ app.post('/reservas', (req, res) => {
     });
 });
   
-  // Rota para atualizar status do agendamento
   app.delete('/reservas', (req, res) => {
-    const { usuario, horario, dia } = req.body;  // Pega os parâmetros da requisição
+    const { usuario, horario, dia } = req.body;  
 
     console.error('Usuário:', usuario, 'Horário:', horario, 'Dia:', dia);
 
@@ -209,30 +356,22 @@ app.get('/reservas', (req, res) => {
   });
   
   app.put('/reservas/:id', async (req, res) => {
-    const { id } = req.params; // ID da reserva a ser atualizada
-    const { dia, horario, qntd_pessoa } = req.body; // Dados da reserva a ser atualizada
+    const { id } = req.params; 
+    const { dia, horario, qntd_pessoa } = req.body; 
   
     try {
-      // Verificando se a reserva existe
-      const reserva = await Reserva.findOne({ where: { id } });
+      const [reservas] = await dbPromise.query('SELECT * FROM reservas WHERE id = ?', [id]);
   
-      if (!reserva) {
+      if (reservas.length === 0) {
         return res.status(404).json({ error: 'Reserva não encontrada' });
       }
   
-      // Verificando se a reserva pertence ao usuário logado
-      if (reserva.userId !== userId) {
-        return res.status(403).json({ error: 'Você não tem permissão para atualizar essa reserva' });
-      }
-  
-      // Atualizando a reserva no banco de dados
-      const reservaAtualizada = await Reserva.update(
-        { dia, horario, qntd_pessoa },
-        { where: { id } }  // Identifica a reserva pelo ID
+      const [result] = await dbPromise.query(
+        'UPDATE reservas SET dia = ?, horario = ?, qntd_pessoa = ? WHERE id = ?',
+        [dia, horario, qntd_pessoa, id]
       );
   
-      if (reservaAtualizada[0] === 0) {
-        // Caso o ID não tenha sido encontrado ou não tenha ocorrido nenhuma atualização
+      if (result.affectedRows === 0) {
         return res.status(404).json({ error: 'Reserva não encontrada ou nenhum dado alterado' });
       }
   
@@ -313,7 +452,7 @@ app.patch('/reservas/negado/:id', async (req, res) => {
     let sql = `UPDATE reservas SET status = ? ${status === 'negado' ? ', motivoNegacao = ?' : ', motivoNegacao = NULL'} WHERE id = ?`;
     let params = status === 'negado' ? [status, motivoNegacao, reservaId] : [status, reservaId];
 
-    db.query(sql, params, (err, result) => {
+    db.query(sql, params, (err) => {
         if (err) {
             console.error("Erro ao atualizar reserva:", err);
             return res.status(500).json({ error: "Erro ao atualizar reserva" });
@@ -355,8 +494,8 @@ app.get('/usuarios/logados', (req, res) => {
 });
 
 app.get('/usuarios/solicitarDados/:id', (req, res) => {
-  const userId = req.params.id; // Pega o ID do parâmetro da URL
-  console.log('ID do usuário recebido:', userId); // Adicione este log para verificar se o ID está sendo capturado corretamente
+  const userId = req.params.id; 
+  console.log('ID do usuário recebido:', userId); 
 
   const query = 'SELECT id, nome, sobrenome, email, telefone FROM usuario WHERE id = ?';
   
@@ -370,34 +509,69 @@ app.get('/usuarios/solicitarDados/:id', (req, res) => {
       return res.status(404).send('Usuário não encontrado ou não está logado');
     }
 
-    res.json(results[0]); // Retorna o usuário logado como JSON
+    res.json(results[0]); 
+  });
+});
+
+app.get('/empresas', (req, res) => {
+  const query = `
+    SELECT 
+      e.id,
+      e.nome as nomeEmpresa,
+      COUNT(DISTINCT u.id) as quantidadeProfissionais,
+      GROUP_CONCAT(DISTINCT u.tipoProfissional) as tiposProfissionais
+    FROM empresas e
+    LEFT JOIN usuario u ON u.empresa_id = e.id
+    GROUP BY e.id, e.nome
+    ORDER BY e.nome ASC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Erro ao buscar empresas:', err);
+      // Se a tabela empresas não existir, tenta buscar da forma antiga
+      const fallbackQuery = `
+        SELECT DISTINCT nomeEmpresa, 
+               COUNT(*) as quantidadeProfissionais,
+               GROUP_CONCAT(DISTINCT tipoProfissional) as tiposProfissionais
+        FROM usuario 
+        WHERE fazParteEmpresa = 1 AND nomeEmpresa IS NOT NULL AND nomeEmpresa != ''
+        GROUP BY nomeEmpresa
+        ORDER BY nomeEmpresa ASC
+      `;
+      
+      db.query(fallbackQuery, (err2, results2) => {
+        if (err2) {
+          return res.status(500).json({ error: 'Erro ao buscar empresas' });
+        }
+        res.json(results2);
+      });
+    } else {
+      res.json(results);
+    }
   });
 });
 
 app.post('/api/forgot-password', (req, res) => {
   const { email } = req.body;
 
-  // Verificar se o e-mail existe no banco de dados
   db.query('SELECT id FROM usuario WHERE email = ?', [email], (err, results) => {
     if (err || results.length === 0) {
       return res.status(400).json({ error: 'Usuário não encontrado.' });
     }
 
-    // Retornar o id do usuário encontrado
-    const userId = results[0].id; // Pega o ID do primeiro resultado
-    res.json({ userId }); // Retorna o id para o frontend
+    const userId = results[0].id; 
+    res.json({ userId }); 
   });
 });
 
 app.patch('/api/reset-password/:id', async (req, res) => {
-  const { id } = req.params; // Obtemos o id do usuário a partir dos parâmetros
-  const { senha } = req.body; // Nova senha que será enviada
+  const { id } = req.params; 
+  const { senha } = req.body; 
 
   try {
-    // Criptografando a nova senha
     const hashedPassword = await bcrypt.hash(senha, 10);
 
-    // Atualizando a senha no banco de dados
     const query = 'UPDATE usuario SET senha = ? WHERE id = ?';
 
     db.query(query, [hashedPassword, id], (err, result) => {
@@ -416,10 +590,4 @@ app.patch('/api/reset-password/:id', async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: 'Erro ao processar a senha.' });
   }
-});
-  
-// Inicia o servidor
-const port = process.env.PORT || 4000;
-app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
 });
