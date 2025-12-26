@@ -71,13 +71,15 @@ app.post('/register', async (req, res) => {
     const { 
       nome, 
       sobrenome, 
-      telefone, 
-      email, 
-      senha, 
-      tipoUsuario, 
-      tipoProfissional, 
+      telefone,
+      email,
+      senha,
+      tipoUsuario,
+      tipoProfissional,
       especialidadeMedica,
-      profissaoCustomizada
+      profissaoCustomizada,
+      numeroConselho,
+      ufRegiao
     } = req.body;
   
     console.log('=== DADOS RECEBIDOS NO REGISTRO ===');
@@ -102,6 +104,16 @@ app.post('/register', async (req, res) => {
       if (tipoProfissional === 'outros' && (!profissaoCustomizada || !profissaoCustomizada.trim())) {
         return res.status(400).json({ error: 'Profissão customizada é obrigatória quando selecionar "Outros".' });
       }
+      if (!numeroConselho || !numeroConselho.trim()) {
+        return res.status(400).json({ error: 'Número do conselho é obrigatório para profissionais.' });
+      }
+      const regexConselho = /^[A-Za-z0-9\s]{3,20}$/;
+      if (!regexConselho.test(numeroConselho.trim())) {
+        return res.status(400).json({ error: 'Número do conselho inválido. Deve conter entre 3 e 20 caracteres alfanuméricos (ex: CRM 123456).' });
+      }
+      if (!ufRegiao || !ufRegiao.trim()) {
+        return res.status(400).json({ error: 'UF/Região é obrigatória para profissionais.' });
+      }
     }
   
     try {
@@ -123,6 +135,14 @@ app.post('/register', async (req, res) => {
           ? especialidadeMedica 
           : (tipoProfissional === 'outros' ? profissaoCustomizada : tipoProfissional);
         values.push(tipoProfissionalFinal);
+
+        query += ', numeroConselho';
+        placeholders += ', ?';
+        values.push(numeroConselho.trim());
+
+        query += ', ufRegiao';
+        placeholders += ', ?';
+        values.push(ufRegiao.trim());
       }
 
       query += `) VALUES (${placeholders})`;
