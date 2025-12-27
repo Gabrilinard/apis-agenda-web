@@ -74,6 +74,7 @@ app.post('/register', async (req, res) => {
       telefone,
       email,
       senha,
+      cpf,
       tipoUsuario,
       tipoProfissional,
       especialidadeMedica,
@@ -88,12 +89,44 @@ app.post('/register', async (req, res) => {
       modalidade
     } = req.body;
   
-    console.log('=== DADOS RECEBIDOS NO REGISTRO ===');
-    console.log('req.body completo:', JSON.stringify(req.body, null, 2));
-    console.log('tipoUsuario:', tipoUsuario);
-  
-    if (!nome || !sobrenome || !email || !senha) {
+    if (!nome || !sobrenome || !email || !senha || !cpf) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios!' });
+    }
+
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) {
+      return res.status(400).json({ error: 'CPF deve conter 11 dígitos.' });
+    }
+
+    if (/^(\d)\1{10}$/.test(cpfLimpo)) {
+      return res.status(400).json({ error: 'CPF inválido.' });
+    }
+    let soma = 0;
+    let resto;
+    
+    for (let i = 1; i <= 9; i++) {
+      soma += parseInt(cpfLimpo.substring(i - 1, i)) * (11 - i);
+    }
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(cpfLimpo.substring(9, 10))) {
+      return res.status(400).json({ error: 'CPF inválido.' });
+    }
+    
+    soma = 0;
+    for (let i = 1; i <= 10; i++) {
+      soma += parseInt(cpfLimpo.substring(i - 1, i)) * (12 - i);
+    }
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(cpfLimpo.substring(10, 11))) {
+      return res.status(400).json({ error: 'CPF inválido.' });
+    }
+
+    // Verifica se CPF já existe
+    const [cpfExists] = await dbPromise.query('SELECT id FROM usuario WHERE cpf = ?', [cpfLimpo]);
+    if (cpfExists.length > 0) {
+      return res.status(400).json({ error: 'CPF já cadastrado.' });
     }
     
     if (tipoUsuario === 'profissional') {
@@ -171,9 +204,9 @@ app.post('/register', async (req, res) => {
     try {
       const hashedPassword = await bcrypt.hash(senha, 10);
 
-      let query = 'INSERT INTO usuario (nome, sobrenome, telefone, email, senha';
-      let values = [nome, sobrenome, telefone, email, hashedPassword];
-      let placeholders = '?, ?, ?, ?, ?';
+      let query = 'INSERT INTO usuario (nome, sobrenome, telefone, email, senha, cpf';
+      let values = [nome, sobrenome, telefone, email, hashedPassword, cpfLimpo];
+      let placeholders = '?, ?, ?, ?, ?, ?';
 
       query += ', tipoUsuario';
       placeholders += ', ?';
@@ -316,11 +349,11 @@ app.get('/user/:id', (req, res) => {
 app.post('/reservas', async (req, res) => {
     console.log(req.body); 
   
-    const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional } = req.body;
+    const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status } = req.body;
 
-    let profissional_id = null;
+    let profissionalIdFinal = profissional_id || null;
     
-    if (nomeProfissional) {
+    if (!profissionalIdFinal && nomeProfissional) {
       try {
         const partes = nomeProfissional.trim().split(' ');
         const nomeProf = partes[0] || '';
@@ -337,8 +370,8 @@ app.post('/reservas', async (req, res) => {
         });
         
         if (profResults.length > 0) {
-          profissional_id = profResults[0].id;
-          console.log('Profissional encontrado com ID:', profissional_id);
+          profissionalIdFinal = profResults[0].id;
+          console.log('Profissional encontrado com ID:', profissionalIdFinal);
         } else {
           console.log('Profissional não encontrado no banco de dados');
         }
@@ -347,14 +380,15 @@ app.post('/reservas', async (req, res) => {
       }
     }
     
-    console.log('Criando reserva com profissional_id:', profissional_id);
-    const sql = 'INSERT INTO reservas (nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    db.query(sql, [nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id], (err, result) => {
+    console.log('Criando reserva com profissional_id:', profissionalIdFinal);
+    const statusFinal = status || 'pendente'; // Se não vier status, usa 'pendente' como padrão
+    const sql = 'INSERT INTO reservas (nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    db.query(sql, [nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissionalIdFinal, statusFinal], (err, result) => {
         if (err) {
             console.error('Erro ao inserir no banco de dados:', err);
             return res.status(500).json({ error: 'Erro ao processar a reserva.' });
         }
-        console.log('Reserva criada com sucesso, ID:', result.insertId, 'profissional_id:', profissional_id);
+        console.log('Reserva criada com sucesso, ID:', result.insertId, 'profissional_id:', profissionalIdFinal);
         res.json({ success: true, id: result.insertId });
     });
 });
@@ -619,6 +653,32 @@ app.get('/usuarios/solicitarDados/:id', (req, res) => {
     }
 
     res.json(results[0]); 
+  });
+});
+
+app.get('/usuarios/buscarPorCPF/:cpf', (req, res) => {
+  const cpf = req.params.cpf.replace(/\D/g, '');
+  console.log('CPF recebido para busca:', cpf);
+
+  if (cpf.length !== 11) {
+    return res.status(400).json({ error: 'CPF deve conter 11 dígitos.' });
+  }
+
+  const query = 'SELECT id, nome, sobrenome, email, telefone, cpf FROM usuario WHERE cpf = ?';
+  
+  db.query(query, [cpf], (err, results) => {
+    if (err) {
+      console.error('Erro ao buscar usuário por CPF:', err);
+      return res.status(500).json({ error: 'Erro ao buscar usuário por CPF' });
+    }
+
+    if (results.length === 0) {
+      console.log('Nenhum usuário encontrado com CPF:', cpf);
+      return res.status(404).json({ error: 'Usuário não encontrado com este CPF.' });
+    }
+
+    console.log('Usuário encontrado:', results[0]);
+    res.json(results[0]);
   });
 });
 
