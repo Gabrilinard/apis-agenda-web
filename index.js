@@ -79,7 +79,10 @@ app.post('/register', async (req, res) => {
       especialidadeMedica,
       profissaoCustomizada,
       numeroConselho,
-      ufRegiao
+      ufRegiao,
+      cidade,
+      latitude,
+      longitude
     } = req.body;
   
     console.log('=== DADOS RECEBIDOS NO REGISTRO ===');
@@ -189,6 +192,24 @@ app.post('/register', async (req, res) => {
         query += ', ufRegiao';
         placeholders += ', ?';
         values.push(ufRegiao.trim());
+
+        if (cidade) {
+          query += ', cidade';
+          placeholders += ', ?';
+          values.push(cidade.trim());
+        }
+
+        if (latitude) {
+          query += ', latitude';
+          placeholders += ', ?';
+          values.push(latitude);
+        }
+
+        if (longitude) {
+          query += ', longitude';
+          placeholders += ', ?';
+          values.push(longitude);
+        }
       }
 
       query += `) VALUES (${placeholders})`;
@@ -564,7 +585,7 @@ app.get('/usuarios/solicitarDados/:id', (req, res) => {
   const userId = req.params.id; 
   console.log('ID do usuário recebido:', userId); 
 
-  const query = 'SELECT id, nome, sobrenome, email, telefone FROM usuario WHERE id = ?';
+  const query = 'SELECT id, nome, sobrenome, email, telefone, latitude, longitude, cidade, ufRegiao FROM usuario WHERE id = ?';
   
   db.query(query, [userId], (err, results) => {
     if (err) {
@@ -637,7 +658,8 @@ app.get('/profissionais/:categoria', (req, res) => {
         u.tipoProfissional,
         u.email,
         u.telefone,
-        u.ufRegiao
+        u.ufRegiao,
+        u.cidade
       FROM usuario u
       WHERE u.tipoUsuario = 'profissional' 
         AND u.tipoProfissional IN (${placeholders})
@@ -653,7 +675,8 @@ app.get('/profissionais/:categoria', (req, res) => {
         u.tipoProfissional,
         u.email,
         u.telefone,
-        u.ufRegiao
+        u.ufRegiao,
+        u.cidade
       FROM usuario u
       WHERE u.tipoUsuario = 'profissional' 
         AND LOWER(u.tipoProfissional) = ?
