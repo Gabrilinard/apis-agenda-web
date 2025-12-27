@@ -1,35 +1,19 @@
 {
-    "name": "backend",
-    "version": "1.0.0",
-    "main": "index.js",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "start": "node index.js"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
-    "dependencies": {
-        "axios": "^1.8.1",
-        "bcrypt": "^5.1.1",
-        "bcryptjs": "^2.4.3",
-        "body-parser": "^1.20.3",
-        "cors": "^2.8.5",
-        "date-fns": "^4.1.0",
-        "dotenv": "^16.4.7",
-        "express": "^4.21.2",
-        "jsonwebtoken": "^9.0.2",
-        "mercadopago": "^1.0.0",
-        "multer": "^1.4.5-lts.1",
-        "mysql": "^2.18.1",
-        "mysql2": "^3.12.0",
-        "node-cron": "^3.0.3",
-        "nodemailer": "^6.10.0",
-        "passport": "^0.7.0",
-        "passport-google-oauth20": "^2.0.0",
-        "react-datepicker": "^8.1.0",
-        "react-google-login": "^5.2.2",
-        "sequelize": "^6.37.5"
-    },
-    "description": ""
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Backend do sistema de agendamento",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "mysql2": "^3.12.0",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1"
+  }
 }

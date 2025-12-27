@@ -79,22 +79,12 @@ app.post('/register', async (req, res) => {
       especialidadeMedica,
       profissaoCustomizada,
       numeroConselho,
-      ufRegiao,
-      latitude,
-      longitude,
-      cidade
+      ufRegiao
     } = req.body;
   
     console.log('=== DADOS RECEBIDOS NO REGISTRO ===');
     console.log('req.body completo:', JSON.stringify(req.body, null, 2));
-    console.log('tipoUsuario recebido:', tipoUsuario, 'tipo:', typeof tipoUsuario);
-    console.log('tipoUsuario === "profissional":', tipoUsuario === 'profissional');
-    console.log('tipoUsuario === "paciente":', tipoUsuario === 'paciente');
-    console.log('tipoProfissional:', tipoProfissional);
-    console.log('numeroConselho:', numeroConselho);
-    console.log('ufRegiao:', ufRegiao);
-    console.log('latitude:', latitude);
-    console.log('longitude:', longitude);
+    console.log('tipoUsuario:', tipoUsuario);
   
     if (!nome || !sobrenome || !email || !senha) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios!' });
@@ -175,56 +165,15 @@ app.post('/register', async (req, res) => {
     try {
       const hashedPassword = await bcrypt.hash(senha, 10);
 
-      let tipoUsuarioFinal;
-      
-      if (tipoUsuario === 'profissional') {
-        tipoUsuarioFinal = 'profissional';
-        console.log('✅✅✅ tipoUsuario é "profissional" - FORÇANDO COMO PROFISSIONAL ✅✅✅');
-      } else if (tipoProfissional || numeroConselho || ufRegiao || latitude || longitude || cidade) {
-        tipoUsuarioFinal = 'profissional';
-        console.log('✅ Forçando tipoUsuario para "profissional" porque há campos de profissional');
-      } else {
-        tipoUsuarioFinal = 'paciente';
-        console.log('✅ tipoUsuario é "paciente" ou não definido - definindo como paciente');
-      }
-      
-      if (tipoUsuarioFinal === 'cliente') {
-        tipoUsuarioFinal = 'paciente';
-        console.log('⚠️ Convertendo "cliente" para "paciente"');
-      }
-
-      console.log('📝📝📝 RESUMO FINAL ANTES DE SALVAR 📝📝📝');
-      console.log('   tipoUsuario recebido do frontend:', tipoUsuario, '(tipo:', typeof tipoUsuario, ')');
-      console.log('   tipoUsuario === "profissional":', tipoUsuario === 'profissional');
-      console.log('   tipoUsuarioFinal que será salvo no banco:', tipoUsuarioFinal);
-      console.log('   Validação final: tipoUsuarioFinal === "profissional"?', tipoUsuarioFinal === 'profissional');
-      
-      if (tipoUsuario === 'profissional' && tipoUsuarioFinal !== 'profissional') {
-        console.error('❌❌❌ ERRO CRÍTICO: tipoUsuario é "profissional" mas tipoUsuarioFinal não é! ❌❌❌');
-        tipoUsuarioFinal = 'profissional';
-        console.log('🔧 CORRIGINDO: Forçando tipoUsuarioFinal para "profissional"');
-      }
-
       let query = 'INSERT INTO usuario (nome, sobrenome, telefone, email, senha';
       let values = [nome, sobrenome, telefone, email, hashedPassword];
       let placeholders = '?, ?, ?, ?, ?';
 
       query += ', tipoUsuario';
       placeholders += ', ?';
-      
-      if (tipoUsuario === 'profissional' && tipoUsuarioFinal !== 'profissional') {
-        console.error('❌ ERRO: tipoUsuarioFinal não é "profissional" mas deveria ser! Forçando...');
-        tipoUsuarioFinal = 'profissional';
-      }
-      
-      values.push(tipoUsuarioFinal);
-      console.log('🔒 VALIDAÇÃO FINAL: tipoUsuarioFinal sendo inserido:', tipoUsuarioFinal);
+      values.push(tipoUsuario || 'paciente');
 
-      if (tipoUsuarioFinal === 'profissional') {
-        if (!tipoProfissional) {
-          return res.status(400).json({ error: 'Tipo de profissional é obrigatório quando há campos de profissional.' });
-        }
-        
+      if (tipoUsuario === 'profissional') {
         query += ', tipoProfissional';
         placeholders += ', ?';
 
@@ -235,23 +184,11 @@ app.post('/register', async (req, res) => {
 
         query += ', numeroConselho';
         placeholders += ', ?';
-        values.push(numeroConselho ? numeroConselho.trim() : '');
+        values.push(numeroConselho.trim());
 
         query += ', ufRegiao';
         placeholders += ', ?';
-        values.push(ufRegiao ? ufRegiao.trim() : '');
-
-        if (latitude && longitude) {
-          query += ', latitude, longitude';
-          placeholders += ', ?, ?';
-          values.push(latitude, longitude);
-        }
-
-        if (cidade) {
-          query += ', cidade';
-          placeholders += ', ?';
-          values.push(cidade.trim());
-        }
+        values.push(ufRegiao.trim());
       }
 
       query += `) VALUES (${placeholders})`;
@@ -266,27 +203,17 @@ app.post('/register', async (req, res) => {
           console.error('Erro completo:', err);
           console.error('Código do erro:', err.code);
           console.error('Mensagem do erro:', err.sqlMessage);
-          if (err.code === 'ER_DUP_ENTRY') {
-            if (err.sqlMessage && err.sqlMessage.includes('email')) {
-              return res.status(400).json({ error: 'Este e-mail já está cadastrado. Por favor, use outro e-mail ou faça login.' });
-            }
-            return res.status(400).json({ error: 'Já existe um registro com estes dados. Por favor, verifique as informações.' });
-          }
           if (err.code === 'ER_BAD_FIELD_ERROR') {
-            console.log('⚠️ Colunas não existem, inserindo com campos básicos mas mantendo tipoUsuario...');
-            console.log('tipoUsuarioFinal que será salvo no fallback:', tipoUsuarioFinal);
+            console.log('Colunas de profissional não existem, inserindo apenas campos básicos...');
             db.query(
-              'INSERT INTO usuario (nome, sobrenome, telefone, email, senha, tipoUsuario) VALUES (?, ?, ?, ?, ?, ?)',
-              [nome, sobrenome, telefone, email, hashedPassword, tipoUsuarioFinal],
+              'INSERT INTO usuario (nome, sobrenome, telefone, email, senha) VALUES (?, ?, ?, ?, ?)',
+              [nome, sobrenome, telefone, email, hashedPassword],
               (err2, results2) => {
                 if (err2) {
                   console.error('Erro ao registrar (fallback):', err2);
-                  if (err2.code === 'ER_DUP_ENTRY' && err2.sqlMessage && err2.sqlMessage.includes('email')) {
-                    return res.status(400).json({ error: 'Este e-mail já está cadastrado. Por favor, use outro e-mail ou faça login.' });
-                  }
                   return res.status(400).json({ error: `Erro ao registrar: ${err2.sqlMessage}` });
                 }
-                console.log('✅ Usuário registrado com sucesso (fallback) - tipoUsuario:', tipoUsuarioFinal);
+                console.log('Usuário registrado com sucesso (sem campos profissionais)', results2);
                 console.log('ID inserido:', results2.insertId);
                 res.json({ message: 'Usuário registrado com sucesso!', id: results2.insertId });
               }
@@ -322,29 +249,16 @@ app.post('/login', (req, res) => {
 
     const token = jwt.sign({ id: user.id }, 'secreto', { expiresIn: '1h' });
 
-    let tipoUsuario = user.tipoUsuario || 'paciente';
-    
-    if (tipoUsuario !== 'profissional' && (user.tipoProfissional || user.numeroConselho || user.ufRegiao)) {
-      tipoUsuario = 'profissional';
-      console.log(`Corrigindo tipoUsuario para 'profissional' para o usuário ${user.id} (tem campos de profissional)`);
-    }
-
-    const userResponse = { 
-      id: user.id, 
-      nome: user.nome, 
-      sobrenome: user.sobrenome, 
-      telefone: user.telefone,
-      email: user.email,
-      tipoUsuario: tipoUsuario
-    };
-
-    console.log('=== LOGIN ===');
-    console.log('User do banco:', { id: user.id, email: user.email, tipoUsuario: user.tipoUsuario, temProfissional: !!(user.tipoProfissional || user.numeroConselho || user.ufRegiao) });
-    console.log('User retornado:', userResponse);
-
     res.json({ 
       token, 
-      user: userResponse
+      user: { 
+        id: user.id, 
+        nome: user.nome, 
+        sobrenome: user.sobrenome, 
+        telefone: user.telefone,
+        email: user.email,
+        tipoUsuario: user.tipoUsuario || 'paciente'
+      } 
     });
   });
 })
@@ -440,40 +354,28 @@ app.post('/reservas', async (req, res) => {
 app.get('/reservas', (req, res) => {
     const { profissional_id, usuario_id } = req.query;
     
-    console.log('=== GET /reservas ===');
-    console.log('Query params recebidos:', { profissional_id, usuario_id });
-    console.log('req.query completo:', req.query);
-    
     let query = 'SELECT * FROM reservas';
     let queryParams = [];
     let whereConditions = [];
+    
+    if (usuario_id) {
+      whereConditions.push('usuario_id = ?');
+      queryParams.push(usuario_id);
+    }
     
     if (profissional_id) {
       whereConditions.push('profissional_id = ?');
       queryParams.push(profissional_id);
     }
     
-    if (usuario_id) {
-      if (profissional_id) {
-        whereConditions.push('usuario_id = ?');
-        queryParams.push(usuario_id);
-      } else {
-        whereConditions.push('(usuario_id = ? AND (profissional_id IS NULL OR profissional_id = ?))');
-        queryParams.push(usuario_id, usuario_id);
-      }
-    }
-    
     if (whereConditions.length > 0) {
       query += ' WHERE ' + whereConditions.join(' AND ');
     }
     
-    console.log('Query SQL final:', query);
-    console.log('Parâmetros:', queryParams);
-    
     if (usuario_id && profissional_id) {
       console.log(`Filtrando reservas por usuario_id: ${usuario_id} e profissional_id: ${profissional_id}`);
     } else if (profissional_id) {
-      console.log('Filtrando reservas APENAS por profissional_id:', profissional_id);
+      console.log('Filtrando reservas por profissional_id:', profissional_id);
     } else if (usuario_id) {
       console.log('Filtrando reservas por usuario_id:', usuario_id);
     } else {
@@ -486,12 +388,6 @@ app.get('/reservas', (req, res) => {
         return res.status(500).json(err);
       }
       console.log(`Retornando ${results.length} reservas`);
-      if (profissional_id) {
-        console.log('Reservas retornadas para profissional_id:', profissional_id);
-        results.forEach((r, i) => {
-          console.log(`Reserva ${i + 1}: id=${r.id}, profissional_id=${r.profissional_id}, usuario_id=${r.usuario_id}`);
-        });
-      }
       res.json(results);
     });
   });
@@ -668,7 +564,7 @@ app.get('/usuarios/solicitarDados/:id', (req, res) => {
   const userId = req.params.id; 
   console.log('ID do usuário recebido:', userId); 
 
-  const query = 'SELECT id, nome, sobrenome, email, telefone, latitude, longitude, cidade, ufRegiao FROM usuario WHERE id = ?';
+  const query = 'SELECT id, nome, sobrenome, email, telefone FROM usuario WHERE id = ?';
   
   db.query(query, [userId], (err, results) => {
     if (err) {
@@ -681,74 +577,6 @@ app.get('/usuarios/solicitarDados/:id', (req, res) => {
     }
 
     res.json(results[0]); 
-  });
-});
-
-app.patch('/usuarios/:id/tipoUsuario', (req, res) => {
-  const userId = req.params.id;
-  let { tipoUsuario } = req.body;
-
-  if (!tipoUsuario || !['paciente', 'profissional', 'cliente'].includes(tipoUsuario)) {
-    return res.status(400).json({ error: 'tipoUsuario inválido. Deve ser: paciente ou profissional.' });
-  }
-
-  if (tipoUsuario === 'cliente') {
-    tipoUsuario = 'paciente';
-    console.log('Convertendo "cliente" para "paciente" no PATCH');
-  }
-
-  const query = 'UPDATE usuario SET tipoUsuario = ? WHERE id = ?';
-
-  db.query(query, [tipoUsuario, userId], (err, results) => {
-    if (err) {
-      console.error('Erro ao atualizar tipoUsuario:', err);
-      return res.status(500).json({ error: 'Erro ao atualizar tipoUsuario.' });
-    }
-
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ error: 'Usuário não encontrado.' });
-    }
-
-    console.log(`tipoUsuario atualizado para ${tipoUsuario} para o usuário ${userId}`);
-    res.json({ success: true, message: 'tipoUsuario atualizado com sucesso!' });
-  });
-});
-
-app.patch('/usuarios/:id/localizacao', (req, res) => {
-  const userId = req.params.id;
-  const { latitude, longitude, cidade, ufRegiao } = req.body;
-
-  if (!latitude || !longitude) {
-    return res.status(400).json({ error: 'Latitude e longitude são obrigatórios.' });
-  }
-
-  let query = 'UPDATE usuario SET latitude = ?, longitude = ?';
-  let values = [latitude, longitude];
-
-  if (cidade) {
-    query += ', cidade = ?';
-    values.push(cidade.trim());
-  }
-
-  if (ufRegiao) {
-    query += ', ufRegiao = ?';
-    values.push(ufRegiao.trim());
-  }
-
-  query += ' WHERE id = ?';
-  values.push(userId);
-
-  db.query(query, values, (err, results) => {
-    if (err) {
-      console.error('Erro ao atualizar localização:', err);
-      return res.status(500).json({ error: 'Erro ao atualizar localização.' });
-    }
-
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ error: 'Usuário não encontrado.' });
-    }
-
-    res.json({ success: true, message: 'Localização atualizada com sucesso!' });
   });
 });
 
@@ -922,3 +750,4 @@ app.patch('/api/reset-password/:id', async (req, res) => {
     return res.status(500).json({ message: 'Erro ao processar a senha.' });
   }
 });
+
