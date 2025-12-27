@@ -795,3 +795,66 @@ app.patch('/api/reset-password/:id', async (req, res) => {
   }
 });
 
+app.patch('/usuarios/:id/localizacao', (req, res) => {
+  const { id } = req.params;
+  const { latitude, longitude, cidade, ufRegiao } = req.body;
+
+  const query = 'UPDATE usuario SET latitude = ?, longitude = ?, cidade = ?, ufRegiao = ? WHERE id = ?';
+  
+  db.query(query, [latitude, longitude, cidade, ufRegiao, id], (err, result) => {
+    if (err) {
+      console.error('Erro ao atualizar localização:', err);
+      return res.status(500).json({ error: 'Erro ao atualizar localização.' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    res.json({ message: 'Localização atualizada com sucesso.' });
+  });
+});
+
+app.patch('/usuarios/:id/informacoes', (req, res) => {
+  const { id } = req.params;
+  const { descricao, publicoAtendido, modalidade } = req.body;
+
+  const updates = [];
+  const values = [];
+
+  if (descricao !== undefined) {
+    updates.push('descricao = ?');
+    values.push(descricao);
+  }
+
+  if (publicoAtendido !== undefined) {
+    updates.push('publicoAtendido = ?');
+    values.push(publicoAtendido);
+  }
+
+  if (modalidade !== undefined) {
+    updates.push('modalidade = ?');
+    values.push(modalidade);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
+  }
+
+  values.push(id);
+  const query = `UPDATE usuario SET ${updates.join(', ')} WHERE id = ?`;
+  
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Erro ao atualizar informações:', err);
+      return res.status(500).json({ error: 'Erro ao atualizar informações.' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    res.json({ message: 'Informações atualizadas com sucesso.' });
+  });
+});
+
