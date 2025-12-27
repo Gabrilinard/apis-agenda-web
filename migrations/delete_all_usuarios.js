@@ -5,41 +5,26 @@ const db = mysql.createConnection({
   port: 3306,
   user: 'root',
   password: 'REDACTED',
-  database: 'agendamento',
-  multipleStatements: true
+  database: 'agendamento'
 });
 
-console.log('Conectando ao banco de dados...');
-
-db.connect((err) => {
+db.connect(err => {
   if (err) {
     console.error('Erro ao conectar ao banco de dados:', err.message);
-    process.exit(1);
+    return;
   }
-
   console.log('Conectado ao banco de dados!');
-  console.log('Excluindo todos os usuários da tabela usuario...');
 
   const query = 'DELETE FROM usuario';
-
-  db.query(query, (err, results) => {
+  db.query(query, (err, result) => {
     if (err) {
-      console.error('Erro ao excluir usuários:', err.message);
+      console.error('Erro ao excluir usuários:', err);
       db.end();
-      process.exit(1);
+      return;
     }
-
-    console.log(`✅ ${results.affectedRows} usuário(s) excluído(s) com sucesso!`);
+    console.log(`✅ ${result.affectedRows} usuário(s) excluído(s) com sucesso!`);
     console.log('A tabela usuario foi mantida intacta.');
-    
-    db.end((err) => {
-      if (err) {
-        console.error('Erro ao fechar conexão:', err.message);
-      } else {
-        console.log('Conexão fechada.');
-      }
-      process.exit(0);
-    });
+    db.end();
+    console.log('Conexão fechada.');
   });
 });
-

@@ -82,7 +82,10 @@ app.post('/register', async (req, res) => {
       ufRegiao,
       cidade,
       latitude,
-      longitude
+      longitude,
+      descricao,
+      publicoAtendido,
+      modalidade
     } = req.body;
   
     console.log('=== DADOS RECEBIDOS NO REGISTRO ===');
@@ -209,6 +212,24 @@ app.post('/register', async (req, res) => {
           query += ', longitude';
           placeholders += ', ?';
           values.push(longitude);
+        }
+
+        if (descricao) {
+          query += ', descricao';
+          placeholders += ', ?';
+          values.push(descricao.trim());
+        }
+
+        if (publicoAtendido) {
+          query += ', publicoAtendido';
+          placeholders += ', ?';
+          values.push(publicoAtendido.trim());
+        }
+
+        if (modalidade) {
+          query += ', modalidade';
+          placeholders += ', ?';
+          values.push(modalidade.trim());
         }
       }
 
@@ -585,7 +606,7 @@ app.get('/usuarios/solicitarDados/:id', (req, res) => {
   const userId = req.params.id; 
   console.log('ID do usuário recebido:', userId); 
 
-  const query = 'SELECT id, nome, sobrenome, email, telefone, latitude, longitude, cidade, ufRegiao FROM usuario WHERE id = ?';
+  const query = 'SELECT id, nome, sobrenome, email, telefone, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade FROM usuario WHERE id = ?';
   
   db.query(query, [userId], (err, results) => {
     if (err) {
