@@ -107,9 +107,55 @@ app.post('/register', async (req, res) => {
       if (!numeroConselho || !numeroConselho.trim()) {
         return res.status(400).json({ error: 'Número do conselho é obrigatório para profissionais.' });
       }
-      const regexConselho = /^[A-Za-z0-9\s]{3,20}$/;
+      
+      const apenasNumeros = numeroConselho.replace(/\D/g, '');
+      let regexConselho;
+      let mensagemErro;
+      
+      switch (tipoProfissional) {
+        case 'medico':
+          regexConselho = /^CRM\s?\d{4,6}$/i;
+          mensagemErro = 'Número do conselho inválido. Formato esperado: CRM 123456 (4 a 6 dígitos)';
+          break;
+        case 'dentista':
+          regexConselho = /^CRO\s?\d{4,6}$/i;
+          mensagemErro = 'Número do conselho inválido. Formato esperado: CRO 123456 (4 a 6 dígitos)';
+          break;
+        case 'nutricionista':
+          regexConselho = /^CRN\s?\d{4,5}$/i;
+          mensagemErro = 'Número do conselho inválido. Formato esperado: CRN 12345 (4 a 5 dígitos)';
+          break;
+        case 'fisioterapeuta':
+          regexConselho = /^CREFITO\s?\d{4,6}$/i;
+          mensagemErro = 'Número do conselho inválido. Formato esperado: CREFITO 123456 (4 a 6 dígitos)';
+          break;
+        case 'fonoaudiologo':
+          regexConselho = /^CRFa\s?\d{4,5}$/i;
+          mensagemErro = 'Número do conselho inválido. Formato esperado: CRFa 12345 (4 a 5 dígitos)';
+          break;
+        default:
+          regexConselho = /^[A-Za-z0-9\s]{3,15}$/;
+          mensagemErro = 'Número do conselho inválido. Deve conter entre 3 e 10 dígitos';
+      }
+      
       if (!regexConselho.test(numeroConselho.trim())) {
-        return res.status(400).json({ error: 'Número do conselho inválido. Deve conter entre 3 e 20 caracteres alfanuméricos (ex: CRM 123456).' });
+        return res.status(400).json({ error: mensagemErro });
+      }
+      
+      if (tipoProfissional === 'medico' && (apenasNumeros.length < 4 || apenasNumeros.length > 6)) {
+        return res.status(400).json({ error: 'CRM deve conter entre 4 e 6 dígitos' });
+      }
+      if (tipoProfissional === 'dentista' && (apenasNumeros.length < 4 || apenasNumeros.length > 6)) {
+        return res.status(400).json({ error: 'CRO deve conter entre 4 e 6 dígitos' });
+      }
+      if (tipoProfissional === 'nutricionista' && (apenasNumeros.length < 4 || apenasNumeros.length > 5)) {
+        return res.status(400).json({ error: 'CRN deve conter entre 4 e 5 dígitos' });
+      }
+      if (tipoProfissional === 'fisioterapeuta' && (apenasNumeros.length < 4 || apenasNumeros.length > 6)) {
+        return res.status(400).json({ error: 'CREFITO deve conter entre 4 e 6 dígitos' });
+      }
+      if (tipoProfissional === 'fonoaudiologo' && (apenasNumeros.length < 4 || apenasNumeros.length > 5)) {
+        return res.status(400).json({ error: 'CRFa deve conter entre 4 e 5 dígitos' });
       }
       if (!ufRegiao || !ufRegiao.trim()) {
         return res.status(400).json({ error: 'UF/Região é obrigatória para profissionais.' });
@@ -225,17 +271,48 @@ app.get('/user/:id', (req, res) => {
   });
 });
 
-app.post('/reservas', (req, res) => {
+app.post('/reservas', async (req, res) => {
     console.log(req.body); 
   
-    const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id } = req.body;
+    const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional } = req.body;
 
-    const sql = 'INSERT INTO reservas (nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    db.query(sql, [nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id], (err, result) => {
+    let profissional_id = null;
+    
+    if (nomeProfissional) {
+      try {
+        const partes = nomeProfissional.trim().split(' ');
+        const nomeProf = partes[0] || '';
+        const sobrenomeProf = partes.slice(1).join(' ') || '';
+        
+        console.log('Buscando profissional:', { nomeProfissional, nomeProf, sobrenomeProf });
+        
+        const profissionalQuery = 'SELECT id FROM usuario WHERE nome = ? AND sobrenome = ? AND tipoUsuario = ? LIMIT 1';
+        const profResults = await new Promise((resolve, reject) => {
+          db.query(profissionalQuery, [nomeProf, sobrenomeProf, 'profissional'], (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          });
+        });
+        
+        if (profResults.length > 0) {
+          profissional_id = profResults[0].id;
+          console.log('Profissional encontrado com ID:', profissional_id);
+        } else {
+          console.log('Profissional não encontrado no banco de dados');
+        }
+      } catch (err) {
+        console.error('Erro ao buscar profissional:', err);
+      }
+    }
+    
+    console.log('Criando reserva com profissional_id:', profissional_id);
+    const sql = 'INSERT INTO reservas (nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    db.query(sql, [nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id], (err, result) => {
         if (err) {
             console.error('Erro ao inserir no banco de dados:', err);
             return res.status(500).json({ error: 'Erro ao processar a reserva.' });
         }
+        console.log('Reserva criada com sucesso, ID:', result.insertId, 'profissional_id:', profissional_id);
         res.json({ success: true, id: result.insertId });
     });
 });
@@ -275,8 +352,42 @@ app.post('/reservas', (req, res) => {
 });
 
 app.get('/reservas', (req, res) => {
-    db.query('SELECT * FROM reservas', (err, results) => {
-      if (err) return res.status(500).json(err);
+    const { profissional_id, usuario_id } = req.query;
+    
+    let query = 'SELECT * FROM reservas';
+    let queryParams = [];
+    let whereConditions = [];
+    
+    if (usuario_id) {
+      whereConditions.push('usuario_id = ?');
+      queryParams.push(usuario_id);
+    }
+    
+    if (profissional_id) {
+      whereConditions.push('profissional_id = ?');
+      queryParams.push(profissional_id);
+    }
+    
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ');
+    }
+    
+    if (usuario_id && profissional_id) {
+      console.log(`Filtrando reservas por usuario_id: ${usuario_id} e profissional_id: ${profissional_id}`);
+    } else if (profissional_id) {
+      console.log('Filtrando reservas por profissional_id:', profissional_id);
+    } else if (usuario_id) {
+      console.log('Filtrando reservas por usuario_id:', usuario_id);
+    } else {
+      console.log('Buscando todas as reservas (sem filtro)');
+    }
+    
+    db.query(query, queryParams, (err, results) => {
+      if (err) {
+        console.error('Erro ao buscar reservas:', err);
+        return res.status(500).json(err);
+      }
+      console.log(`Retornando ${results.length} reservas`);
       res.json(results);
     });
   });
@@ -473,6 +584,8 @@ app.get('/profissionais', (req, res) => {
   const query = `
     SELECT 
       u.id,
+      u.nome,
+      u.sobrenome,
       CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
       u.tipoProfissional,
       u.email,
@@ -523,7 +636,8 @@ app.get('/profissionais/:categoria', (req, res) => {
         CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
         u.tipoProfissional,
         u.email,
-        u.telefone
+        u.telefone,
+        u.ufRegiao
       FROM usuario u
       WHERE u.tipoUsuario = 'profissional' 
         AND u.tipoProfissional IN (${placeholders})
@@ -538,7 +652,8 @@ app.get('/profissionais/:categoria', (req, res) => {
         CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
         u.tipoProfissional,
         u.email,
-        u.telefone
+        u.telefone,
+        u.ufRegiao
       FROM usuario u
       WHERE u.tipoUsuario = 'profissional' 
         AND LOWER(u.tipoProfissional) = ?
