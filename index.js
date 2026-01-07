@@ -86,7 +86,10 @@ app.post('/register', async (req, res) => {
       longitude,
       descricao,
       publicoAtendido,
-      modalidade
+      modalidade,
+      valorConsulta,
+      diasAtendimento,
+      horariosAtendimento
     } = req.body;
   
     if (!nome || !sobrenome || !email || !senha || !cpf) {
@@ -263,6 +266,26 @@ app.post('/register', async (req, res) => {
           query += ', modalidade';
           placeholders += ', ?';
           values.push(modalidade.trim());
+        }
+
+        if (valorConsulta) {
+          query += ', valorConsulta';
+          placeholders += ', ?';
+          values.push(valorConsulta);
+        }
+
+        if (diasAtendimento) {
+          query += ', diasAtendimento';
+          placeholders += ', ?';
+          // Se for array, converte para string/JSON
+          values.push(typeof diasAtendimento === 'object' ? JSON.stringify(diasAtendimento) : diasAtendimento);
+        }
+
+        if (horariosAtendimento) {
+          query += ', horariosAtendimento';
+          placeholders += ', ?';
+          // Se for objeto, converte para string/JSON
+          values.push(typeof horariosAtendimento === 'object' ? JSON.stringify(horariosAtendimento) : horariosAtendimento);
         }
       }
 
@@ -640,7 +663,7 @@ app.get('/usuarios/solicitarDados/:id', (req, res) => {
   const userId = req.params.id; 
   console.log('ID do usuário recebido:', userId); 
 
-  const query = 'SELECT id, nome, sobrenome, email, telefone, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade FROM usuario WHERE id = ?';
+  const query = 'SELECT id, nome, sobrenome, email, telefone, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, diasAtendimento, horariosAtendimento FROM usuario WHERE id = ?';
   
   db.query(query, [userId], (err, results) => {
     if (err) {
