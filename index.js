@@ -494,24 +494,48 @@ app.get('/reservas', (req, res) => {
 
   app.patch('/reservas/:id', (req, res) => {
     const agendamentoId = req.params.id;
-    const { status } = req.body; 
+    const { status, dia, horario, horarioFinal } = req.body; 
     
-    if (!status) {
-      return res.status(400).json({ error: 'Status é obrigatório' });
+    const updates = [];
+    const values = [];
+
+    if (status !== undefined) {
+      updates.push('status = ?');
+      values.push(status);
+    }
+
+    if (dia !== undefined) {
+      updates.push('dia = ?');
+      values.push(dia);
+    }
+
+    if (horario !== undefined) {
+      updates.push('horario = ?');
+      values.push(horario);
+    }
+
+    if (horarioFinal !== undefined) {
+      updates.push('horarioFinal = ?');
+      values.push(horarioFinal);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
     }
   
-    const query = `UPDATE reservas SET status = ? WHERE id = ?`;
+    values.push(agendamentoId);
+    const query = `UPDATE reservas SET ${updates.join(', ')} WHERE id = ?`;
   
-    db.query(query, [status, agendamentoId], (err, results) => {
+    db.query(query, values, (err, results) => {
       if (err) {
-        return res.status(500).json({ error: 'Erro ao atualizar o status', details: err });
+        return res.status(500).json({ error: 'Erro ao atualizar a reserva', details: err });
       }
   
       if (results.affectedRows === 0) {
         return res.status(404).json({ message: 'Reserva não encontrada' });
       }
   
-      res.status(200).json({ message: `Status atualizado com sucesso para ${status}` });
+      res.status(200).json({ message: 'Reserva atualizada com sucesso' });
     });
   });
   
@@ -900,7 +924,7 @@ app.patch('/usuarios/:id/localizacao', (req, res) => {
 
 app.patch('/usuarios/:id/informacoes', (req, res) => {
   const { id } = req.params;
-  const { descricao, publicoAtendido, modalidade } = req.body;
+  const { descricao, publicoAtendido, modalidade, valorConsulta, diasAtendimento, horariosAtendimento } = req.body;
 
   const updates = [];
   const values = [];
@@ -918,6 +942,21 @@ app.patch('/usuarios/:id/informacoes', (req, res) => {
   if (modalidade !== undefined) {
     updates.push('modalidade = ?');
     values.push(modalidade);
+  }
+
+  if (valorConsulta !== undefined) {
+    updates.push('valorConsulta = ?');
+    values.push(valorConsulta);
+  }
+
+  if (diasAtendimento !== undefined) {
+    updates.push('diasAtendimento = ?');
+    values.push(typeof diasAtendimento === 'object' ? JSON.stringify(diasAtendimento) : diasAtendimento);
+  }
+
+  if (horariosAtendimento !== undefined) {
+    updates.push('horariosAtendimento = ?');
+    values.push(typeof horariosAtendimento === 'object' ? JSON.stringify(horariosAtendimento) : horariosAtendimento);
   }
 
   if (updates.length === 0) {
