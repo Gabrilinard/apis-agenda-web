@@ -1,12 +1,7 @@
 const mysql = require('mysql2');
+const dbConfig = require('../dbConfig');
 
-const connection = mysql.createConnection({
-  host: 'localhost',
-  port: 3306,
-  user: 'root',
-  password: 'REDACTED',
-  database: 'agendamento'
-});
+const connection = mysql.createConnection(dbConfig);
 
 const sql = "ALTER TABLE reservas MODIFY COLUMN status VARCHAR(50) DEFAULT 'pendente'";
 

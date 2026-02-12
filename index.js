@@ -27,6 +27,23 @@ const db = mysql.createConnection({
   queueLimit: 0
 });
 
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const fs = require('fs');
+    const dir = 'uploads/';
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir);
+    }
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    const cleanFileName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
+    cb(null, Date.now() + '-' + cleanFileName)
+  }
+})
+
+const upload = multer({ storage: storage });
+
 module.exports = db;
 
 const dbCallback = mysql.createConnection({
@@ -369,10 +386,16 @@ app.get('/user/:id', (req, res) => {
   });
 });
 
-app.post('/reservas', async (req, res) => {
-    console.log(req.body); 
+app.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => {
+    console.log('Body:', req.body); 
+    if (req.file) {
+      console.log('Arquivo recebido:', req.file);
+    }
   
-    const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status } = req.body;
+    const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status, is_urgente, descricao_urgencia } = req.body;
+
+    const arquivo_urgencia = req.file ? `/uploads/${req.file.filename}` : null;
+    const isUrgenteBoolean = is_urgente === 'true' || is_urgente === true;
 
     let profissionalIdFinal = profissional_id || null;
     
@@ -405,8 +428,9 @@ app.post('/reservas', async (req, res) => {
     
     console.log('Criando reserva com profissional_id:', profissionalIdFinal);
     const statusFinal = status || 'pendente'; // Se não vier status, usa 'pendente' como padrão
-    const sql = 'INSERT INTO reservas (nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    db.query(sql, [nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissionalIdFinal, statusFinal], (err, result) => {
+    
+    const sql = 'INSERT INTO reservas (nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id, status, is_urgente, descricao_urgencia, arquivo_urgencia) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    db.query(sql, [nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissionalIdFinal, statusFinal, isUrgenteBoolean, descricao_urgencia, arquivo_urgencia], (err, result) => {
         if (err) {
             console.error('Erro ao inserir no banco de dados:', err);
             return res.status(500).json({ error: 'Erro ao processar a reserva.' });
