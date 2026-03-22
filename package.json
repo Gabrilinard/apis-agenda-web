@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "migrate": "node src/migrations/cli.js"
   },
   "dependencies": {
     "express": "^4.21.2",
