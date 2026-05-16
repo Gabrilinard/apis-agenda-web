@@ -56,7 +56,7 @@ const listLoggedUsers = (cb) => {
 
 const getUserInfoById = (id, cb) => {
   const query =
-    'SELECT id, nome, sobrenome, email, telefone, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, diasAtendimento, horariosAtendimento FROM usuario WHERE id = ?';
+    'SELECT id, nome, sobrenome, email, telefone, tipoProfissional, especialidadeMedica, profissaoCustomizada, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, diasAtendimento, horariosAtendimento FROM usuario WHERE id = ?';
   pool.query(query, [id], (err, rows) => {
     if (err) return cb(err);
     cb(null, rows && rows[0] ? rows[0] : null);
