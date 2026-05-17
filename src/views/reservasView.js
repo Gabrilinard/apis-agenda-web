@@ -82,9 +82,8 @@ router.get('/reservas', (req, res) => {
 });
 
 router.patch('/reservas/:id', (req, res) => {
-  reservasModel.patchUpdate(req.params.id, req.body || {}, (err, result) => {
+  reservasModel.patchUpdate(req.params.id, req.body || {}, (err) => {
     if (err) return res.status(500).json({ error: 'Erro ao atualizar a reserva', details: err });
-    if (!result || result.affectedRows === 0) return res.status(404).json({ message: 'Reserva não encontrada' });
     res.status(200).json({ message: 'Reserva atualizada com sucesso' });
   });
 });

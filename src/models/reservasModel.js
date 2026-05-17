@@ -74,7 +74,7 @@ const list = (filters, cb) => {
 };
 
 const patchUpdate = (id, payload, cb) => {
-  const { status, dia, horario, horarioFinal } = payload;
+  const { status, dia, horario, horarioFinal, is_urgente } = payload;
   const updates = [];
   const values = [];
 
@@ -94,8 +94,12 @@ const patchUpdate = (id, payload, cb) => {
     updates.push('horarioFinal = ?');
     values.push(horarioFinal);
   }
+  if (is_urgente !== undefined) {
+    updates.push('is_urgente = ?');
+    values.push(is_urgente ? 1 : 0);
+  }
 
-  if (updates.length === 0) return cb(null, { affectedRows: 0 });
+  if (updates.length === 0) return cb(null, { affectedRows: 1 });
 
   values.push(id);
   pool.query(`UPDATE reservas SET ${updates.join(', ')} WHERE id = ?`, values, cb);

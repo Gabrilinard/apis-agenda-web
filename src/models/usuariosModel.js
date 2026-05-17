@@ -56,7 +56,7 @@ const listLoggedUsers = (cb) => {
 
 const getUserInfoById = (id, cb) => {
   const query =
-    'SELECT id, nome, sobrenome, email, telefone, tipoProfissional, especialidadeMedica, profissaoCustomizada, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, diasAtendimento, horariosAtendimento FROM usuario WHERE id = ?';
+    'SELECT id, nome, sobrenome, email, telefone, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, diasAtendimento, horariosAtendimento FROM usuario WHERE id = ?';
   pool.query(query, [id], (err, rows) => {
     if (err) return cb(err);
     cb(null, rows && rows[0] ? rows[0] : null);
@@ -76,6 +76,10 @@ const updateInformacoes = (id, payload, cb) => {
   const updates = [];
   const values = [];
 
+  if (payload.tipoProfissional !== undefined) {
+    updates.push('tipoProfissional = ?');
+    values.push(payload.tipoProfissional);
+  }
   if (payload.descricao !== undefined) {
     updates.push('descricao = ?');
     values.push(payload.descricao);
