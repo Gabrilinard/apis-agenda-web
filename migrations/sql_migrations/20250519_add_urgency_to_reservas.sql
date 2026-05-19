@@ -1,0 +1,3 @@
+ALTER TABLE reservas ADD COLUMN is_urgente BOOLEAN DEFAULT FALSE;
+ALTER TABLE reservas ADD COLUMN descricao_urgencia TEXT NULL;
+ALTER TABLE reservas ADD COLUMN arquivo_urgencia VARCHAR(255) NULL
