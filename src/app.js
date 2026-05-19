@@ -9,6 +9,7 @@ const formulariosView = require('./views/formulariosView');
 const usuariosView = require('./views/usuariosView');
 const profissionaisView = require('./views/profissionaisView');
 const empresasView = require('./views/empresasView');
+const vagasView = require('./views/vagasView');
 
 const createApp = () => {
   const app = express();
@@ -30,6 +31,7 @@ const createApp = () => {
   app.use(usuariosView);
   app.use(profissionaisView);
   app.use(empresasView);
+  app.use(vagasView);
 
   return app;
 };
