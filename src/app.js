@@ -10,6 +10,7 @@ const usuariosView = require('./views/usuariosView');
 const profissionaisView = require('./views/profissionaisView');
 const empresasView = require('./views/empresasView');
 const vagasView = require('./views/vagasView');
+const avaliacoesView = require('./views/avaliacoesView');
 
 const createApp = () => {
   const app = express();
@@ -32,6 +33,7 @@ const createApp = () => {
   app.use(profissionaisView);
   app.use(empresasView);
   app.use(vagasView);
+  app.use(avaliacoesView);
 
   return app;
 };

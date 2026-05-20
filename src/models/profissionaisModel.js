@@ -74,11 +74,15 @@ const listPorCategoria = (categoria, cb) => {
         u.valorConsulta,
         u.horariosAtendimento,
         u.diasAtendimento,
-        u.descricao
+        u.descricao,
+        ROUND(AVG(a.nota), 1) AS mediaAvaliacao,
+        COUNT(a.id) AS totalAvaliacoes
       FROM usuario u
+      LEFT JOIN avaliacoes a ON a.profissional_id = u.id
       WHERE u.tipoUsuario = 'profissional'
         AND u.tipoProfissional IN (${placeholders})
         AND (u.empresa_id IS NULL OR u.empresa_id = 0)
+      GROUP BY u.id
       ORDER BY u.nome ASC
     `;
     queryParams = especialidadesMedicas;
@@ -97,11 +101,15 @@ const listPorCategoria = (categoria, cb) => {
         u.valorConsulta,
         u.horariosAtendimento,
         u.diasAtendimento,
-        u.descricao
+        u.descricao,
+        ROUND(AVG(a.nota), 1) AS mediaAvaliacao,
+        COUNT(a.id) AS totalAvaliacoes
       FROM usuario u
+      LEFT JOIN avaliacoes a ON a.profissional_id = u.id
       WHERE u.tipoUsuario = 'profissional'
         AND LOWER(u.tipoProfissional) = ?
         AND (u.empresa_id IS NULL OR u.empresa_id = 0)
+      GROUP BY u.id
       ORDER BY u.nome ASC
     `;
     queryParams = [categoria];
