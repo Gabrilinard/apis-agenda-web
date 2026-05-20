@@ -118,9 +118,9 @@ router.post('/vagas/aceitar/:notificacaoId', async (req, res) => {
       );
     }
 
-    // Mark the freed slot as filled (set to negado to remove from liberado list)
+    // Mark the freed slot as transferred (hidden in patient history, removed from VerVagas)
     if (notif.reserva_liberada_id) {
-      await dbPromise.query('UPDATE reservas SET status = "negado" WHERE id = ?', [notif.reserva_liberada_id]);
+      await dbPromise.query('UPDATE reservas SET status = "transferido" WHERE id = ?', [notif.reserva_liberada_id]);
     }
 
     // Accept this notification

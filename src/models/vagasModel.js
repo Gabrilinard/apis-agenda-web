@@ -23,21 +23,24 @@ const getCandidatos = async (profissional_id, dia, excluir_usuario_id) => {
 
   if (urgentes.length >= limit) return urgentes.slice(0, limit);
 
-  // 2. Fill remaining slots with next-day patients
+  // 2. Fill remaining slots — next upcoming unique patients after the freed slot date
   const remaining = limit - urgentes.length;
+  const urgenteIds = urgentes.map(u => u.usuario_id);
   const [proximos] = await dbPromise.query(`
-    SELECT r.id AS reserva_id, u.id AS usuario_id, u.nome, u.sobrenome, u.email,
-           r.dia, r.horario, 0 AS is_urgente, NULL AS descricao_urgencia
+    SELECT MIN(r.id) AS reserva_id, u.id AS usuario_id, u.nome, u.sobrenome, u.email,
+           MIN(r.dia) AS dia, MIN(r.horario) AS horario, 0 AS is_urgente, NULL AS descricao_urgencia
     FROM reservas r
     JOIN usuario u ON r.usuario_id = u.id
     WHERE r.profissional_id = ?
-      AND r.dia = DATE_ADD(?, INTERVAL 1 DAY)
+      AND r.dia > ?
       AND r.status IN ('confirmado', 'pendente')
       AND IFNULL(r.is_urgente, 0) = 0
       AND (? = 0 OR r.usuario_id != ?)
-    ORDER BY r.horario ASC
+      ${urgenteIds.length ? `AND u.id NOT IN (${urgenteIds.map(() => '?').join(',')})` : ''}
+    GROUP BY u.id, u.nome, u.sobrenome, u.email
+    ORDER BY MIN(r.dia) ASC, MIN(r.horario) ASC
     LIMIT ?
-  `, [profId, dia, excluir, excluir, remaining]);
+  `, [profId, dia, excluir, excluir, ...urgenteIds, remaining]);
 
   return [...urgentes, ...proximos];
 };
