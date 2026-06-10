@@ -1,13 +1,13 @@
 const { dbPromise } = require('../db');
 const crypto = require('crypto');
 
-// Returns up to 5 candidates: emergencies first, then next-day appointments
+// Returns ALL urgent candidates + up to 5 non-urgent from the queue starting the next day
 const getCandidatos = async (profissional_id, dia, excluir_usuario_id) => {
-  const limit = 5;
+  const NON_URGENT_LIMIT = 5;
   const excluir = parseInt(excluir_usuario_id, 10) || 0;
   const profId  = parseInt(profissional_id, 10) || 0;
 
-  // 1. Emergency patients (is_urgente, still pending/confirmed)
+  // 1. ALL emergency patients (no limit)
   const [urgentes] = await dbPromise.query(`
     SELECT r.id AS reserva_id, u.id AS usuario_id, u.nome, u.sobrenome, u.email,
            r.dia, r.horario, 1 AS is_urgente, r.descricao_urgencia
@@ -18,13 +18,9 @@ const getCandidatos = async (profissional_id, dia, excluir_usuario_id) => {
       AND r.status IN ('pendente', 'confirmado')
       AND (? = 0 OR r.usuario_id != ?)
     ORDER BY r.id ASC
-    LIMIT ?
-  `, [profId, excluir, excluir, limit]);
+  `, [profId, excluir, excluir]);
 
-  if (urgentes.length >= limit) return urgentes.slice(0, limit);
-
-  // 2. Fill remaining slots — next upcoming unique patients after the freed slot date
-  const remaining = limit - urgentes.length;
+  // 2. Next 5 non-urgent unique patients after the freed slot date (always 5, independent of urgents)
   const urgenteIds = urgentes.map(u => u.usuario_id);
   const [proximos] = await dbPromise.query(`
     SELECT MIN(r.id) AS reserva_id, u.id AS usuario_id, u.nome, u.sobrenome, u.email,
@@ -40,7 +36,7 @@ const getCandidatos = async (profissional_id, dia, excluir_usuario_id) => {
     GROUP BY u.id, u.nome, u.sobrenome, u.email
     ORDER BY MIN(r.dia) ASC, MIN(r.horario) ASC
     LIMIT ?
-  `, [profId, dia, excluir, excluir, ...urgenteIds, remaining]);
+  `, [profId, dia, excluir, excluir, ...urgenteIds, NON_URGENT_LIMIT]);
 
   return [...urgentes, ...proximos];
 };
