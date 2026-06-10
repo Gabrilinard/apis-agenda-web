@@ -1,5 +1,5 @@
 const express = require('express');
-const { upload } = require('../middlewares/upload');
+const { upload, USE_S3 } = require('../middlewares/upload');
 const { dbPromise } = require('../db');
 const reservasModel = require('../models/reservasModel');
 const profissionaisModel = require('../models/profissionaisModel');
@@ -10,7 +10,9 @@ const router = express.Router();
 router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => {
   const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status, is_urgente, descricao_urgencia } = req.body;
 
-  const arquivo_urgencia = req.file ? `/uploads/${req.file.filename}` : null;
+  const arquivo_urgencia = req.file
+    ? (USE_S3 ? req.file.location : `/uploads/${req.file.filename}`)
+    : null;
   const isUrgenteBoolean = is_urgente === 'true' || is_urgente === true;
 
   let profissionalIdFinal = profissional_id || null;
