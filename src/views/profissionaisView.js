@@ -12,7 +12,7 @@ router.get('/profissionais', (req, res) => {
 
 router.get('/profissionais/:categoria', (req, res) => {
   const { categoria } = req.params;
-  const categoriasValidas = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo'];
+  const categoriasValidas = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo', 'psicologo'];
   if (!categoriasValidas.includes(categoria)) {
     return res.status(400).json({ error: 'Categoria inválida' });
   }

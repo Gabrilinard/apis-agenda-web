@@ -81,7 +81,7 @@ router.post('/register', async (req, res) => {
     if (!tipoProfissional) {
       return res.status(400).json({ error: 'Tipo de profissional é obrigatório.' });
     }
-    const tiposValidos = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo', 'outros'];
+    const tiposValidos = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo', 'psicologo', 'outros'];
     if (!tiposValidos.includes(tipoProfissional)) {
       return res.status(400).json({ error: 'Tipo de profissional inválido.' });
     }
@@ -120,6 +120,10 @@ router.post('/register', async (req, res) => {
         regexConselho = /^CRFa\s?\d{4,5}$/i;
         mensagemErro = 'Número do conselho inválido. Formato esperado: CRFa 12345 (4 a 5 dígitos)';
         break;
+      case 'psicologo':
+        regexConselho = /^CRP\s?\d{1,2}\/\d{4,6}$/i;
+        mensagemErro = 'Número do conselho inválido. Formato esperado: CRP 06/12345 (região/número)';
+        break;
       default:
         regexConselho = /^[A-Za-z0-9\s]{3,15}$/;
         mensagemErro = 'Número do conselho inválido. Deve conter entre 3 e 10 dígitos';
@@ -143,6 +147,9 @@ router.post('/register', async (req, res) => {
     }
     if (tipoProfissional === 'fonoaudiologo' && (apenasNumeros.length < 4 || apenasNumeros.length > 5)) {
       return res.status(400).json({ error: 'CRFa deve conter entre 4 e 5 dígitos' });
+    }
+    if (tipoProfissional === 'psicologo' && (apenasNumeros.length < 5 || apenasNumeros.length > 8)) {
+      return res.status(400).json({ error: 'CRP deve conter região (1-2 dígitos) e número (4-6 dígitos)' });
     }
     if (!ufRegiao || !ufRegiao.trim()) {
       return res.status(400).json({ error: 'UF/Região é obrigatória para profissionais.' });
