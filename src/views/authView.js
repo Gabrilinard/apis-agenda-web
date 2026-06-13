@@ -95,61 +95,31 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Número do conselho é obrigatório para profissionais.' });
     }
 
-    const apenasNumeros = numeroConselho.replace(/\D/g, '');
-    let regexConselho;
-    let mensagemErro;
+    const conselhoTrimmed = numeroConselho.trim();
 
-    switch (tipoProfissional) {
-      case 'medico':
-        regexConselho = /^CRM\s?\d{4,6}$/i;
-        mensagemErro = 'Número do conselho inválido. Formato esperado: CRM 123456 (4 a 6 dígitos)';
-        break;
-      case 'dentista':
-        regexConselho = /^CRO\s?\d{4,6}$/i;
-        mensagemErro = 'Número do conselho inválido. Formato esperado: CRO 123456 (4 a 6 dígitos)';
-        break;
-      case 'nutricionista':
-        regexConselho = /^CRN\s?\d{4,5}$/i;
-        mensagemErro = 'Número do conselho inválido. Formato esperado: CRN 12345 (4 a 5 dígitos)';
-        break;
-      case 'fisioterapeuta':
-        regexConselho = /^CREFITO\s?\d{4,6}$/i;
-        mensagemErro = 'Número do conselho inválido. Formato esperado: CREFITO 123456 (4 a 6 dígitos)';
-        break;
-      case 'fonoaudiologo':
-        regexConselho = /^CRFa\s?\d{4,5}$/i;
-        mensagemErro = 'Número do conselho inválido. Formato esperado: CRFa 12345 (4 a 5 dígitos)';
-        break;
-      case 'psicologo':
-        regexConselho = /^CRP\s?\d{1,2}\/\d{4,6}$/i;
-        mensagemErro = 'Número do conselho inválido. Formato esperado: CRP 06/12345 (região/número)';
-        break;
-      default:
-        regexConselho = /^[A-Za-z0-9\s]{3,15}$/;
-        mensagemErro = 'Número do conselho inválido. Deve conter entre 3 e 10 dígitos';
+    const formatosConselho = {
+      medico:        { regex: /^CRM\/[A-Z]{2} \d{4,6}$/i,          exemplo: 'CRM/PI 425041' },
+      dentista:      { regex: /^CRO\/[A-Z]{2} \d{4,6}$/i,          exemplo: 'CRO/SP 12345' },
+      nutricionista: { regex: /^CRN-[1-9] \d{4,5}$/,               exemplo: 'CRN-3 12345' },
+      fisioterapeuta:{ regex: /^CREFITO-\d{1,2}\/\d{4,6}-[FT]$/i,  exemplo: 'CREFITO-8/123456-F' },
+      fonoaudiologo: { regex: /^CRFa\/[A-Z]{2} \d{4,5}$/i,         exemplo: 'CRFa/SP 12345' },
+      psicologo:     { regex: /^CRP \d{2}\/\d{4,6}$/,              exemplo: 'CRP 06/12345' },
+    };
+
+    const formato = formatosConselho[tipoProfissional];
+    if (formato) {
+      if (!formato.regex.test(conselhoTrimmed)) {
+        return res.status(400).json({
+          error: `Número do conselho inválido. Formato esperado: ${formato.exemplo}`,
+        });
+      }
+    } else if (!/^[A-Za-z0-9 \\/\-]{3,20}$/.test(conselhoTrimmed)) {
+      return res.status(400).json({ error: 'Número do conselho inválido.' });
     }
 
-    if (!regexConselho.test(numeroConselho.trim())) {
-      return res.status(400).json({ error: mensagemErro });
-    }
-
-    if (tipoProfissional === 'medico' && (apenasNumeros.length < 4 || apenasNumeros.length > 6)) {
-      return res.status(400).json({ error: 'CRM deve conter entre 4 e 6 dígitos' });
-    }
-    if (tipoProfissional === 'dentista' && (apenasNumeros.length < 4 || apenasNumeros.length > 6)) {
-      return res.status(400).json({ error: 'CRO deve conter entre 4 e 6 dígitos' });
-    }
-    if (tipoProfissional === 'nutricionista' && (apenasNumeros.length < 4 || apenasNumeros.length > 5)) {
-      return res.status(400).json({ error: 'CRN deve conter entre 4 e 5 dígitos' });
-    }
-    if (tipoProfissional === 'fisioterapeuta' && (apenasNumeros.length < 4 || apenasNumeros.length > 6)) {
-      return res.status(400).json({ error: 'CREFITO deve conter entre 4 e 6 dígitos' });
-    }
-    if (tipoProfissional === 'fonoaudiologo' && (apenasNumeros.length < 4 || apenasNumeros.length > 5)) {
-      return res.status(400).json({ error: 'CRFa deve conter entre 4 e 5 dígitos' });
-    }
-    if (tipoProfissional === 'psicologo' && (apenasNumeros.length < 5 || apenasNumeros.length > 8)) {
-      return res.status(400).json({ error: 'CRP deve conter região (1-2 dígitos) e número (4-6 dígitos)' });
+    const conselhoJaExiste = await usuariosModel.numeroConselhoExists(conselhoTrimmed);
+    if (conselhoJaExiste) {
+      return res.status(409).json({ error: 'Este número de conselho já está cadastrado.', field: 'numeroConselho' });
     }
     if (!ufRegiao || !ufRegiao.trim()) {
       return res.status(400).json({ error: 'UF/Região é obrigatória para profissionais.' });

@@ -36,6 +36,11 @@ const emailExists = async (email) => {
   return Array.isArray(rows) && rows.length > 0;
 };
 
+const numeroConselhoExists = async (numero) => {
+  const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE numeroConselho = ? LIMIT 1', [numero]);
+  return Array.isArray(rows) && rows.length > 0;
+};
+
 const insertUser = (query, values, cb) => {
   pool.query(query, values, cb);
 };
@@ -125,6 +130,7 @@ module.exports = {
   findByCpf,
   cpfExists,
   emailExists,
+  numeroConselhoExists,
   insertUser,
   updatePassword,
   listLoggedUsers,
