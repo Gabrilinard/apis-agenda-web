@@ -3,7 +3,6 @@ const { dbPromise } = require('../db');
 
 const router = express.Router();
 
-// GET /avaliacoes?profissional_id=X
 router.get('/avaliacoes', async (req, res) => {
   const { profissional_id } = req.query;
   if (!profissional_id) return res.status(400).json({ error: 'profissional_id obrigatório' });
@@ -22,7 +21,6 @@ router.get('/avaliacoes', async (req, res) => {
   }
 });
 
-// GET /avaliacoes/media/:profissional_id
 router.get('/avaliacoes/media/:profissional_id', async (req, res) => {
   try {
     const [[row]] = await dbPromise.query(`
@@ -35,7 +33,6 @@ router.get('/avaliacoes/media/:profissional_id', async (req, res) => {
   }
 });
 
-// GET /avaliacoes/reserva/:reserva_id — check if review exists
 router.get('/avaliacoes/reserva/:reserva_id', async (req, res) => {
   try {
     const [[row]] = await dbPromise.query(
@@ -48,7 +45,6 @@ router.get('/avaliacoes/reserva/:reserva_id', async (req, res) => {
   }
 });
 
-// POST /avaliacoes
 router.post('/avaliacoes', async (req, res) => {
   const { reserva_id, usuario_id, profissional_id, nota, comentario } = req.body;
   if (!reserva_id || !usuario_id || !profissional_id || !nota) {

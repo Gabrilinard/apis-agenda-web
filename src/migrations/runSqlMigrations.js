@@ -29,8 +29,7 @@ const markRan = async (name) => {
   await dbPromise.query('INSERT INTO schema_migrations (name) VALUES (?)', [name]);
 };
 
-// MySQL error codes that are safe to ignore in migrations (e.g. column/key already exists)
-const IGNORABLE_ERRNO = new Set([1060, 1061, 1091]); // ER_DUP_FIELDNAME, ER_DUP_KEYNAME, ER_CANT_DROP_FIELD_OR_KEY
+const IGNORABLE_ERRNO = new Set([1060, 1061, 1091]);
 
 const runFile = async (fullPath) => {
   const sql = fs.readFileSync(fullPath, 'utf8');

@@ -5,7 +5,6 @@ const { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga } = requi
 
 const router = express.Router();
 
-// Patient liberates their slot
 router.post('/vagas/liberar/:reservaId', async (req, res) => {
   const { reservaId } = req.params;
   try {
@@ -15,10 +14,8 @@ router.post('/vagas/liberar/:reservaId', async (req, res) => {
     );
     if (!reserva) return res.status(404).json({ error: 'Reserva não encontrada.' });
 
-    // Mark as liberado
     await dbPromise.query('UPDATE reservas SET status = "liberado" WHERE id = ?', [reservaId]);
 
-    // Get professional info for email
     const [[prof]] = await dbPromise.query(
       'SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1',
       [reserva.profissional_id]
@@ -43,7 +40,6 @@ router.post('/vagas/liberar/:reservaId', async (req, res) => {
   }
 });
 
-// Get candidates for a freed slot
 router.get('/vagas/candidatos', async (req, res) => {
   const { profissional_id, dia, excluir_usuario_id } = req.query;
   if (!profissional_id || !dia) return res.status(400).json({ error: 'profissional_id e dia são obrigatórios.' });
@@ -56,7 +52,6 @@ router.get('/vagas/candidatos', async (req, res) => {
   }
 });
 
-// Admin notifies a candidate
 router.post('/vagas/notificar', async (req, res) => {
   const { profissional_id, reserva_liberada_id, dia, horario, horarioFinal, usuario_notificado_id, reserva_candidato_id } = req.body;
   if (!profissional_id || !dia || !horario || !usuario_notificado_id) {
@@ -67,7 +62,6 @@ router.post('/vagas/notificar', async (req, res) => {
       profissional_id, reserva_liberada_id, dia, horario, horarioFinal, usuario_notificado_id, reserva_candidato_id,
     });
 
-    // Get candidate and professional info for email
     const [[candidato]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [usuario_notificado_id]);
     const [[prof]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [profissional_id]);
 
@@ -90,7 +84,6 @@ router.post('/vagas/notificar', async (req, res) => {
   }
 });
 
-// Get pending vaga notifications for a user (patient polls this)
 router.get('/vagas/pendentes/:usuarioId', async (req, res) => {
   try {
     const notificacoes = await vagasModel.getPendentesPorUsuario(req.params.usuarioId);
@@ -100,7 +93,6 @@ router.get('/vagas/pendentes/:usuarioId', async (req, res) => {
   }
 });
 
-// Patient accepts the vaga
 router.post('/vagas/aceitar/:notificacaoId', async (req, res) => {
   const { token } = req.body;
   const { notificacaoId } = req.params;
@@ -110,7 +102,6 @@ router.post('/vagas/aceitar/:notificacaoId', async (req, res) => {
     const notif = await vagasModel.getNotificacaoPorIdEToken(notificacaoId, token);
     if (!notif) return res.status(404).json({ error: 'Notificação não encontrada ou já processada.' });
 
-    // Update the candidate's reservation to the freed slot
     if (notif.reserva_candidato_id) {
       await dbPromise.query(
         'UPDATE reservas SET dia = ?, horario = ?, horarioFinal = ?, status = "confirmado" WHERE id = ?',
@@ -118,18 +109,13 @@ router.post('/vagas/aceitar/:notificacaoId', async (req, res) => {
       );
     }
 
-    // Mark the freed slot as transferred (hidden in patient history, removed from VerVagas)
     if (notif.reserva_liberada_id) {
       await dbPromise.query('UPDATE reservas SET status = "transferido" WHERE id = ?', [notif.reserva_liberada_id]);
     }
 
-    // Accept this notification
     await vagasModel.aceitarNotificacao(notificacaoId);
-
-    // Expire other notifications for the same slot
     await vagasModel.expirarOutras(notif.profissional_id, notif.dia, notif.horario, notificacaoId);
 
-    // Send confirmation emails
     const [[candidato]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [notif.usuario_notificado_id]);
     const [[prof]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [notif.profissional_id]);
 
@@ -151,7 +137,6 @@ router.post('/vagas/aceitar/:notificacaoId', async (req, res) => {
   }
 });
 
-// Patient declines the vaga
 router.post('/vagas/recusar/:notificacaoId', async (req, res) => {
   try {
     await vagasModel.recusarNotificacao(req.params.notificacaoId);

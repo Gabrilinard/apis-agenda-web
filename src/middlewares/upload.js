@@ -30,7 +30,6 @@ if (USE_S3) {
     }),
   });
 } else {
-  // fallback: disco local (desenvolvimento sem S3 configurado)
   const uploadsDir = path.join(__dirname, '../../uploads');
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {

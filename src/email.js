@@ -1,7 +1,6 @@
 const RESEND_API_KEY = 're_i5sR1uMS_7Ef1tW8deTkpNzn2uGiVrcg3';
 const FROM = 'Agende Aqui <onboarding@resend.dev>';
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
-// Resend testing restriction: unverified domain can only deliver to this address
 const DEV_EMAIL = 'gabrielleite729@gmail.com';
 
 const send = async (to, subject, html) => {

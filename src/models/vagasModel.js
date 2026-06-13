@@ -1,13 +1,11 @@
 const { dbPromise } = require('../db');
 const crypto = require('crypto');
 
-// Returns ALL urgent candidates + up to 5 non-urgent from the queue starting the next day
 const getCandidatos = async (profissional_id, dia, excluir_usuario_id) => {
   const NON_URGENT_LIMIT = 5;
   const excluir = parseInt(excluir_usuario_id, 10) || 0;
   const profId  = parseInt(profissional_id, 10) || 0;
 
-  // 1. ALL emergency patients (no limit)
   const [urgentes] = await dbPromise.query(`
     SELECT r.id AS reserva_id, u.id AS usuario_id, u.nome, u.sobrenome, u.email,
            r.dia, r.horario, 1 AS is_urgente, r.descricao_urgencia
@@ -20,7 +18,6 @@ const getCandidatos = async (profissional_id, dia, excluir_usuario_id) => {
     ORDER BY r.id ASC
   `, [profId, excluir, excluir]);
 
-  // 2. Next 5 non-urgent unique patients after the freed slot date (always 5, independent of urgents)
   const urgenteIds = urgentes.map(u => u.usuario_id);
   const [proximos] = await dbPromise.query(`
     SELECT MIN(r.id) AS reserva_id, u.id AS usuario_id, u.nome, u.sobrenome, u.email,
@@ -80,7 +77,6 @@ const recusarNotificacao = async (id) => {
   await dbPromise.query('UPDATE notificacoes_vaga SET status = "recusada" WHERE id = ?', [id]);
 };
 
-// Expire other pending notifications for the same slot (when one is accepted)
 const expirarOutras = async (profissional_id, dia, horario, exceto_id) => {
   await dbPromise.query(
     'UPDATE notificacoes_vaga SET status = "expirada" WHERE profissional_id = ? AND dia = ? AND horario = ? AND id != ? AND status = "pendente"',
