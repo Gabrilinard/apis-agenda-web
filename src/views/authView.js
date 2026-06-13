@@ -69,7 +69,12 @@ router.post('/register', async (req, res) => {
 
   const cpfJaExiste = await usuariosModel.cpfExists(cpfLimpo);
   if (cpfJaExiste) {
-    return res.status(400).json({ error: 'CPF já cadastrado.' });
+    return res.status(409).json({ error: 'Já existe um usuário cadastrado com esses dados.' });
+  }
+
+  const emailJaExiste = await usuariosModel.emailExists(email);
+  if (emailJaExiste) {
+    return res.status(409).json({ error: 'Este e-mail já está cadastrado.', field: 'email' });
   }
 
   if (tipoUsuario === 'profissional') {

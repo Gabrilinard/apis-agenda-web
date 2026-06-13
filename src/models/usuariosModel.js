@@ -31,6 +31,11 @@ const cpfExists = async (cpfLimpo) => {
   return Array.isArray(rows) && rows.length > 0;
 };
 
+const emailExists = async (email) => {
+  const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE email = ? LIMIT 1', [email]);
+  return Array.isArray(rows) && rows.length > 0;
+};
+
 const insertUser = (query, values, cb) => {
   pool.query(query, values, cb);
 };
@@ -119,6 +124,7 @@ module.exports = {
   findIdByEmail,
   findByCpf,
   cpfExists,
+  emailExists,
   insertUser,
   updatePassword,
   listLoggedUsers,
