@@ -4,8 +4,11 @@ const { dbPromise } = require('../db');
 const reservasModel = require('../models/reservasModel');
 const profissionaisModel = require('../models/profissionaisModel');
 const { emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada } = require('../email');
+const { authenticate } = require('../middlewares/auth');
 
 const router = express.Router();
+
+router.use(authenticate);
 
 router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => {
   const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status, is_urgente, descricao_urgencia } = req.body;

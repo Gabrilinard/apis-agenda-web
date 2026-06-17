@@ -1,7 +1,10 @@
 const express = require('express');
 const usuariosModel = require('../models/usuariosModel');
+const { authenticate } = require('../middlewares/auth');
 
 const router = express.Router();
+
+router.use(authenticate);
 
 router.get('/usuarios/logados', (req, res) => {
   usuariosModel.listLoggedUsers((err, results) => {
