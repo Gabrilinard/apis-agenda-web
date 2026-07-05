@@ -53,6 +53,18 @@ const runFile = async (fullPath) => {
 const runSqlMigrations = async () => {
   await ensureMigrationsTable();
 
+  // Run base schema files first (CREATE TABLE statements) so that tables
+  // exist before any ALTER TABLE migrations are applied.
+  const baseMigrationsDir = path.join(__dirname, '../../migrations');
+  const baseFiles = await listMigrationFiles(baseMigrationsDir);
+
+  for (const file of baseFiles) {
+    if (await alreadyRan(file)) continue;
+    await runFile(path.join(baseMigrationsDir, file));
+    await markRan(file);
+  }
+
+  // Run incremental SQL migrations (ALTER TABLE, new columns, etc.) second.
   const migrationsDir = path.join(__dirname, '../../migrations/sql_migrations');
   const files = await listMigrationFiles(migrationsDir);
 
