@@ -9,7 +9,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- DROP TABLE IF EXISTS usuario;
 
 -- Criar tabela usuario
-CREATE TABLE usuario (
+CREATE TABLE IF NOT EXISTS usuario (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
     sobrenome VARCHAR(255) NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE usuario (
 );
 
 -- Criar tabela reservas
-CREATE TABLE reservas (
+CREATE TABLE IF NOT EXISTS reservas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(255),
     sobrenome VARCHAR(255),
@@ -56,7 +56,7 @@ CREATE TABLE reservas (
     FOREIGN KEY (profissional_id) REFERENCES usuario(id) ON DELETE SET NULL ON UPDATE CASCADE
 );
 
-CREATE TABLE reset_tokens (
+CREATE TABLE IF NOT EXISTS reset_tokens (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     token VARCHAR(255) NOT NULL,
