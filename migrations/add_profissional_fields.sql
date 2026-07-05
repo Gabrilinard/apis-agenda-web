@@ -1,8 +1,8 @@
 -- Script para adicionar campos de profissional na tabela usuario
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 -- Nota: Se as colunas já existirem, você receberá um erro. Nesse caso, ignore o erro.
 
-USE agendamento;
+USE railway;
 
 -- Adiciona coluna tipoUsuario (cliente ou profissional)
 -- Se a coluna já existir, você receberá um erro que pode ser ignorado

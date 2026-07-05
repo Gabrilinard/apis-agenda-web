@@ -1,8 +1,8 @@
 -- Script para excluir e recriar a tabela usuario
 -- ATENÇÃO: Este script irá APAGAR TODOS OS DADOS da tabela usuario
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Remove foreign keys que dependem da tabela usuario
 SET FOREIGN_KEY_CHECKS = 0;

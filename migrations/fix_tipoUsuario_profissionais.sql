@@ -1,7 +1,7 @@
 -- Script para corrigir tipoUsuario de profissionais que foram cadastrados como cliente/paciente
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Atualiza todos os usuários que têm tipoProfissional, numeroConselho ou ufRegiao para 'profissional'
 UPDATE usuario 

@@ -1,7 +1,7 @@
 -- Script para criar a tabela reservas
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Cria tabela reservas
 CREATE TABLE IF NOT EXISTS reservas (

@@ -1,11 +1,10 @@
--- Criar banco de dados
-CREATE DATABASE IF NOT EXISTS agendamento;
-USE agendamento;
+-- Usar banco de dados padrão do Railway
+USE railway;
 
--- Remover tabelas existentes se necessário
-DROP TABLE IF EXISTS reset_tokens;
-DROP TABLE IF EXISTS reservas;
-DROP TABLE IF EXISTS usuario;
+-- DROP TABLE statements comentados (banco de dados novo/limpo no Railway)
+-- DROP TABLE IF EXISTS reset_tokens;
+-- DROP TABLE IF EXISTS reservas;
+-- DROP TABLE IF EXISTS usuario;
 
 -- Criar tabela usuario
 CREATE TABLE usuario (
