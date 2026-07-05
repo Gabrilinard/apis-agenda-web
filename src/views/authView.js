@@ -1,10 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { dbPromise, pool } = require('../db');
 const usuariosModel = require('../models/usuariosModel');
 const { serializeLogin } = require('../serializers/authSerializer');
+const { emailRedefinicaoSenha } = require('../email');
 
 const router = express.Router();
 
@@ -255,29 +257,36 @@ router.get('/user/:id', (req, res) => {
   });
 });
 
-router.post('/api/forgot-password', (req, res) => {
+router.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
-  usuariosModel.findIdByEmail(email, (err, row) => {
-    if (err || !row) {
-      return res.status(400).json({ error: 'Usuário não encontrado.' });
+  try {
+    const user = await usuariosModel.findByEmail(email);
+    if (user) {
+      const token = crypto.randomBytes(32).toString('hex');
+      await usuariosModel.createResetToken(user.id, token);
+      await emailRedefinicaoSenha({ userEmail: user.email, userName: user.nome, token });
     }
-    res.json({ userId: row.id });
-  });
+    // Sempre retorna sucesso para não revelar se o e-mail existe
+    return res.json({ message: 'Se o e-mail estiver cadastrado, você receberá o link em breve.' });
+  } catch (err) {
+    console.error('[forgot-password]', err);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
 });
 
-router.patch('/api/reset-password/:id', async (req, res) => {
-  const { id } = req.params;
-  const { senha } = req.body;
-
+router.patch('/api/reset-password', async (req, res) => {
+  const { token, senha } = req.body;
+  if (!token || !senha) return res.status(400).json({ error: 'Dados inválidos.' });
   try {
+    const tokenRow = await usuariosModel.findResetToken(token);
+    if (!tokenRow) return res.status(400).json({ error: 'Link inválido ou expirado.' });
     const hashedPassword = await bcrypt.hash(senha, 10);
-    usuariosModel.updatePassword(id, hashedPassword, (err, result) => {
-      if (err) return res.status(500).json({ message: 'Erro ao atualizar a senha.' });
-      if (!result || result.affectedRows === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
-      return res.status(200).json({ message: 'Senha redefinida com sucesso.' });
-    });
-  } catch {
-    return res.status(500).json({ message: 'Erro ao processar a senha.' });
+    await usuariosModel.updatePasswordAsync(tokenRow.user_id, hashedPassword);
+    await usuariosModel.deleteResetToken(token);
+    return res.json({ message: 'Senha redefinida com sucesso.' });
+  } catch (err) {
+    console.error('[reset-password]', err);
+    return res.status(500).json({ error: 'Erro interno.' });
   }
 });
 

@@ -49,6 +49,27 @@ const updatePassword = (id, hashedPassword, cb) => {
   pool.query('UPDATE usuario SET senha = ? WHERE id = ?', [hashedPassword, id], cb);
 };
 
+const createResetToken = async (userId, token) => {
+  await dbPromise.query('DELETE FROM reset_tokens WHERE user_id = ?', [userId]);
+  await dbPromise.query('INSERT INTO reset_tokens (user_id, token) VALUES (?, ?)', [userId, token]);
+};
+
+const findResetToken = async (token) => {
+  const [rows] = await dbPromise.query(
+    'SELECT rt.user_id, u.email, u.nome FROM reset_tokens rt JOIN usuario u ON u.id = rt.user_id WHERE rt.token = ? AND rt.created_at > NOW() - INTERVAL 1 HOUR LIMIT 1',
+    [token]
+  );
+  return rows && rows[0] ? rows[0] : null;
+};
+
+const deleteResetToken = async (token) => {
+  await dbPromise.query('DELETE FROM reset_tokens WHERE token = ?', [token]);
+};
+
+const updatePasswordAsync = async (id, hashedPassword) => {
+  await dbPromise.query('UPDATE usuario SET senha = ? WHERE id = ?', [hashedPassword, id]);
+};
+
 const listLoggedUsers = (cb) => {
   const query = `
     SELECT DISTINCT 
@@ -133,6 +154,10 @@ module.exports = {
   numeroConselhoExists,
   insertUser,
   updatePassword,
+  createResetToken,
+  findResetToken,
+  deleteResetToken,
+  updatePasswordAsync,
   listLoggedUsers,
   getUserInfoById,
   updateLocation,

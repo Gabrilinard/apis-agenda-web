@@ -7,22 +7,21 @@ const send = async (to, subject, html) => {
   const isProd = process.env.NODE_ENV === 'production';
   const recipient = isProd ? to : DEV_EMAIL;
   const devPrefix = isProd ? '' : `<p style="background:#FEF3C7;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:16px"><strong>DEV:</strong> destinatário real: ${Array.isArray(to) ? to.join(', ') : to}</p>`;
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ from: FROM, to: Array.isArray(recipient) ? recipient : [recipient], subject, html: devPrefix + html }),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      console.error('[email] Resend error:', err);
-    }
-  } catch (e) {
-    console.error('[email] Falha ao enviar:', e.message);
+  console.log(`[email] Enviando "${subject}" para ${recipient}`);
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from: FROM, to: Array.isArray(recipient) ? recipient : [recipient], subject, html: devPrefix + html }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    console.error('[email] Resend error:', err);
+    throw new Error(`Resend: ${err}`);
   }
+  console.log('[email] Enviado com sucesso');
 };
 
 const emailLiberacaoSlot = async ({ pacienteEmail, pacienteNome, profissionalEmail, profissionalNome, dia, horario }) => {
@@ -233,4 +232,20 @@ const emailUrgenciaRemarcada = async ({ pacienteEmail, pacienteNome, profissiona
   `);
 };
 
-module.exports = { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga, emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada };
+const emailRedefinicaoSenha = async ({ userEmail, userName, token }) => {
+  const link = `${APP_URL}/ResetPassword?token=${token}`;
+  await send(userEmail, 'Redefinição de senha — Agende Aqui', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <h2 style="color:#1B4D3E">Redefinição de senha</h2>
+      <p>Olá <strong>${userName}</strong>,</p>
+      <p>Recebemos uma solicitação para redefinir a senha da sua conta.</p>
+      <p>Clique no botão abaixo para criar uma nova senha. O link expira em <strong>1 hora</strong>.</p>
+      <a href="${link}" style="display:inline-block;background:#1B4D3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:8px">
+        Redefinir senha
+      </a>
+      <p style="color:#888;font-size:12px;margin-top:16px">Se você não solicitou a redefinição, ignore este e-mail — sua senha permanece a mesma.</p>
+    </div>
+  `);
+};
+
+module.exports = { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga, emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada, emailRedefinicaoSenha };
