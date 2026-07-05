@@ -1,14 +1,15 @@
--- Criar banco de dados
-CREATE DATABASE IF NOT EXISTS agendamento;
-USE agendamento;
+-- Usar banco de dados padrão do Railway
+USE railway;
 
--- Remover tabelas existentes se necessário
-DROP TABLE IF EXISTS reset_tokens;
-DROP TABLE IF EXISTS reservas;
-DROP TABLE IF EXISTS usuario;
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- DROP TABLE statements comentados (banco de dados novo/limpo no Railway)
+-- DROP TABLE IF EXISTS reset_tokens;
+-- DROP TABLE IF EXISTS reservas;
+-- DROP TABLE IF EXISTS usuario;
 
 -- Criar tabela usuario
-CREATE TABLE usuario (
+CREATE TABLE IF NOT EXISTS usuario (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
     sobrenome VARCHAR(255) NOT NULL,
@@ -34,7 +35,7 @@ CREATE TABLE usuario (
 );
 
 -- Criar tabela reservas
-CREATE TABLE reservas (
+CREATE TABLE IF NOT EXISTS reservas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(255),
     sobrenome VARCHAR(255),
@@ -55,7 +56,7 @@ CREATE TABLE reservas (
     FOREIGN KEY (profissional_id) REFERENCES usuario(id) ON DELETE SET NULL ON UPDATE CASCADE
 );
 
-CREATE TABLE reset_tokens (
+CREATE TABLE IF NOT EXISTS reset_tokens (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     token VARCHAR(255) NOT NULL,
@@ -71,3 +72,4 @@ CREATE INDEX idx_reservas_profissional_id ON reservas(profissional_id);
 CREATE INDEX idx_reservas_status ON reservas(status);
 CREATE INDEX idx_reservas_dia ON reservas(dia);
 
+SET FOREIGN_KEY_CHECKS = 1;

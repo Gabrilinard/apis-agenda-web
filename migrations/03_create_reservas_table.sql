@@ -1,7 +1,7 @@
 -- Script para criar a tabela reservas
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Cria tabela reservas
 CREATE TABLE IF NOT EXISTS reservas (
@@ -27,4 +27,3 @@ CREATE TABLE IF NOT EXISTS reservas (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SELECT 'Tabela reservas criada com sucesso!' AS message;
-

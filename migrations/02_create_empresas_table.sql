@@ -1,7 +1,7 @@
 -- Script para criar tabela de empresas e associar com usuários
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Cria tabela empresas
 CREATE TABLE IF NOT EXISTS empresas (
@@ -43,4 +43,3 @@ SET u.empresa_id = e.id
 WHERE u.fazParteEmpresa = 1 
   AND u.nomeEmpresa IS NOT NULL 
   AND u.nomeEmpresa != '';
-

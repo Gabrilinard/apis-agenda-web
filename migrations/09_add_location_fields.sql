@@ -1,7 +1,7 @@
 -- Script para adicionar campos de localização na tabela usuario
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Adiciona coluna latitude
 ALTER TABLE usuario 
@@ -16,4 +16,3 @@ ALTER TABLE usuario
 ADD COLUMN cidade VARCHAR(100) NULL;
 
 SELECT 'Campos de localização adicionados com sucesso!' AS message;
-

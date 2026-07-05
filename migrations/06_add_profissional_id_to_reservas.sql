@@ -1,7 +1,7 @@
 -- Script para adicionar campo profissional_id na tabela reservas
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Adiciona coluna profissional_id
 ALTER TABLE reservas 
@@ -18,4 +18,3 @@ ADD INDEX idx_profissional_id (profissional_id);
 -- FOREIGN KEY (profissional_id) REFERENCES usuario(id) ON DELETE SET NULL;
 
 SELECT 'Campo profissional_id adicionado com sucesso!' AS message;
-

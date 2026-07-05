@@ -1,7 +1,7 @@
 -- Aumenta o limite do campo e adiciona constraint de unicidade para numeroConselho
--- Execute no banco 'agendamento'. Se a constraint já existir, ignore o erro.
+-- Execute no banco 'railway'. Se a constraint já existir, ignore o erro.
 
-USE agendamento;
+USE railway;
 
 ALTER TABLE usuario
   MODIFY COLUMN numeroConselho VARCHAR(30) NULL;

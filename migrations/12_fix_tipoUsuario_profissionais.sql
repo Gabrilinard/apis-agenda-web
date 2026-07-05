@@ -1,7 +1,7 @@
 -- Script para corrigir tipoUsuario de profissionais que foram cadastrados como cliente/paciente
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Atualiza todos os usuários que têm tipoProfissional, numeroConselho ou ufRegiao para 'profissional'
 UPDATE usuario 
@@ -13,4 +13,3 @@ WHERE (tipoProfissional IS NOT NULL OR numeroConselho IS NOT NULL OR ufRegiao IS
 -- UPDATE usuario SET tipoUsuario = 'profissional' WHERE email = 'louro@gmail.com';
 
 SELECT 'tipoUsuario corrigido para profissionais!' AS message;
-
