@@ -15,14 +15,15 @@ const avaliacoesView = require('./views/avaliacoesView');
 const createApp = () => {
   const app = express();
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
   app.use(
     cors({
       origin: config.cors.origins,
       credentials: config.cors.credentials
     })
   );
+  app.options('*', cors({ origin: config.cors.origins, credentials: config.cors.credentials }));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
