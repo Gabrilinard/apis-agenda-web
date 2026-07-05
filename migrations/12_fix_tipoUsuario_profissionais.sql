@@ -13,4 +13,3 @@ WHERE (tipoProfissional IS NOT NULL OR numeroConselho IS NOT NULL OR ufRegiao IS
 -- UPDATE usuario SET tipoUsuario = 'profissional' WHERE email = 'louro@gmail.com';
 
 SELECT 'tipoUsuario corrigido para profissionais!' AS message;
-

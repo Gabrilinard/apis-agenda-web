@@ -34,4 +34,3 @@ AFTER tipoProfissional;
 ALTER TABLE usuario 
 ADD COLUMN horarioTreino TIME NULL 
 AFTER profissaoCustomizada;
-

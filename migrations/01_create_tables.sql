@@ -69,4 +69,3 @@ CREATE INDEX idx_reservas_usuario_id ON reservas(usuario_id);
 CREATE INDEX idx_reservas_profissional_id ON reservas(profissional_id);
 CREATE INDEX idx_reservas_status ON reservas(status);
 CREATE INDEX idx_reservas_dia ON reservas(dia);
-

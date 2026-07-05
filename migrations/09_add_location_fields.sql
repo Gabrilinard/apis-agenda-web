@@ -16,4 +16,3 @@ ALTER TABLE usuario
 ADD COLUMN cidade VARCHAR(100) NULL;
 
 SELECT 'Campos de localização adicionados com sucesso!' AS message;
-
