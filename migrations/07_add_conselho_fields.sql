@@ -15,4 +15,3 @@ ADD COLUMN ufRegiao VARCHAR(2) NULL
 AFTER numeroConselho;
 
 SELECT 'Campos numeroConselho e ufRegiao adicionados com sucesso!' AS message;
-

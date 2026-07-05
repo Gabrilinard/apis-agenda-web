@@ -54,4 +54,3 @@ ALTER TABLE reservas ADD CONSTRAINT reservas_ibfk_1 FOREIGN KEY (usuario_id) REF
 SET FOREIGN_KEY_CHECKS = 1;
 
 SELECT 'Tabela usuario recriada com sucesso!' AS message;
-

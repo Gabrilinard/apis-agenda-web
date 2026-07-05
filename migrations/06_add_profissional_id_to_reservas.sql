@@ -18,4 +18,3 @@ ADD INDEX idx_profissional_id (profissional_id);
 -- FOREIGN KEY (profissional_id) REFERENCES usuario(id) ON DELETE SET NULL;
 
 SELECT 'Campo profissional_id adicionado com sucesso!' AS message;
-

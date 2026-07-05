@@ -43,4 +43,3 @@ SET u.empresa_id = e.id
 WHERE u.fazParteEmpresa = 1 
   AND u.nomeEmpresa IS NOT NULL 
   AND u.nomeEmpresa != '';
-

@@ -13,4 +13,3 @@ SET tipoUsuario = 'paciente'
 WHERE tipoUsuario = 'cliente' AND tipoProfissional IS NULL AND numeroConselho IS NULL AND ufRegiao IS NULL;
 
 SELECT 'DEFAULT de tipoUsuario corrigido para "paciente"!' AS message;
-
