@@ -1,5 +1,5 @@
 -- Script para adicionar novos campos de profissional na tabela usuario
-USE agendamento;
+USE railway;
 
 -- Adiciona coluna valorConsulta
 ALTER TABLE usuario 

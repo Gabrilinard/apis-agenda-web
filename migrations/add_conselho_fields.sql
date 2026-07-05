@@ -1,8 +1,8 @@
 -- Script para adicionar campos de número do conselho e UF/Região na tabela usuario
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 -- Nota: Se as colunas já existirem, você receberá um erro. Nesse caso, ignore o erro.
 
-USE agendamento;
+USE railway;
 
 -- Adiciona coluna numeroConselho
 ALTER TABLE usuario 

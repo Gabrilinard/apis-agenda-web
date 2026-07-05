@@ -1,7 +1,7 @@
 -- Script para corrigir o DEFAULT de tipoUsuario de 'cliente' para 'paciente'
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Altera o DEFAULT da coluna tipoUsuario de 'cliente' para 'paciente'
 ALTER TABLE usuario 

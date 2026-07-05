@@ -1,7 +1,7 @@
 -- Script para adicionar campo profissional_id na tabela reservas
--- Execute este script no banco de dados 'agendamento'
+-- Execute este script no banco de dados 'railway'
 
-USE agendamento;
+USE railway;
 
 -- Adiciona coluna profissional_id
 ALTER TABLE reservas 
