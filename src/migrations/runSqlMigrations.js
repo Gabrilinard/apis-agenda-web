@@ -35,25 +35,31 @@ const runFile = async (fullPath) => {
   const raw = fs.readFileSync(fullPath, 'utf8');
 
   // Strip single-line comments and USE statements at the line level so they
-  // don't interfere with execution, then execute the remaining SQL in one shot.
-  // Splitting by semicolons is intentionally avoided because it breaks
-  // multi-line statements such as CREATE TABLE blocks.
-  const sql = raw
+  // don't interfere with execution, then split by semicolons to obtain
+  // individual statements. Each statement is executed separately so that
+  // multi-statement files (e.g. multiple ALTER TABLE calls) work correctly
+  // without relying on multipleStatements mode, which is unreliable with
+  // mysql2 in this context.
+  const filtered = raw
     .split('\n')
     .filter((line) => {
       const trimmed = line.trim();
       return !trimmed.startsWith('--') && !trimmed.toUpperCase().startsWith('USE ');
     })
-    .join('\n')
-    .trim();
+    .join('\n');
 
-  if (!sql) return;
+  const statements = filtered
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 
-  try {
-    await dbPromise.query(sql);
-  } catch (e) {
-    if (IGNORABLE_ERRNO.has(e.errno)) return;
-    throw e;
+  for (const statement of statements) {
+    try {
+      await dbPromise.query(statement);
+    } catch (e) {
+      if (IGNORABLE_ERRNO.has(e.errno)) continue;
+      throw e;
+    }
   }
 };
 
