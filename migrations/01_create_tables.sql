@@ -1,6 +1,8 @@
 -- Usar banco de dados padrão do Railway
 USE railway;
 
+SET FOREIGN_KEY_CHECKS = 0;
+
 -- DROP TABLE statements comentados (banco de dados novo/limpo no Railway)
 -- DROP TABLE IF EXISTS reset_tokens;
 -- DROP TABLE IF EXISTS reservas;
@@ -69,3 +71,5 @@ CREATE INDEX idx_reservas_usuario_id ON reservas(usuario_id);
 CREATE INDEX idx_reservas_profissional_id ON reservas(profissional_id);
 CREATE INDEX idx_reservas_status ON reservas(status);
 CREATE INDEX idx_reservas_dia ON reservas(dia);
+
+SET FOREIGN_KEY_CHECKS = 1;
