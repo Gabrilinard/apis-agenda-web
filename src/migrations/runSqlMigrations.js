@@ -32,21 +32,28 @@ const markRan = async (name) => {
 const IGNORABLE_ERRNO = new Set([1060, 1061, 1091]);
 
 const runFile = async (fullPath) => {
-  const sql = fs.readFileSync(fullPath, 'utf8');
-  const statements = sql
-    .split(';')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-    .filter((s) => !s.startsWith('--'))
-    .filter((s) => !s.toUpperCase().startsWith('USE '));
+  const raw = fs.readFileSync(fullPath, 'utf8');
 
-  for (const statement of statements) {
-    try {
-      await dbPromise.query(statement);
-    } catch (e) {
-      if (IGNORABLE_ERRNO.has(e.errno)) continue;
-      throw e;
-    }
+  // Strip single-line comments and USE statements at the line level so they
+  // don't interfere with execution, then execute the remaining SQL in one shot.
+  // Splitting by semicolons is intentionally avoided because it breaks
+  // multi-line statements such as CREATE TABLE blocks.
+  const sql = raw
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith('--') && !trimmed.toUpperCase().startsWith('USE ');
+    })
+    .join('\n')
+    .trim();
+
+  if (!sql) return;
+
+  try {
+    await dbPromise.query(sql);
+  } catch (e) {
+    if (IGNORABLE_ERRNO.has(e.errno)) return;
+    throw e;
   }
 };
 
