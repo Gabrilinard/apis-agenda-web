@@ -29,7 +29,7 @@ const markRan = async (name) => {
   await dbPromise.query('INSERT INTO schema_migrations (name) VALUES (?)', [name]);
 };
 
-const IGNORABLE_ERRNO = new Set([1060, 1061, 1091]);
+const IGNORABLE_ERRNO = new Set([1060, 1061, 1091, 1826]);
 
 const runFile = async (fullPath) => {
   const raw = fs.readFileSync(fullPath, 'utf8');

@@ -17,29 +17,10 @@ CREATE TABLE IF NOT EXISTS empresas (
 ALTER TABLE usuario 
 ADD COLUMN empresa_id INT NULL;
 
-ALTER TABLE usuario 
-ADD CONSTRAINT fk_usuario_empresa 
+ALTER TABLE usuario
+ADD CONSTRAINT fk_usuario_empresa
 FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE SET NULL;
 
--- Migra dados existentes: cria empresas a partir de nomeEmpresa e associa usuários
--- Primeiro verifica se a coluna nomeEmpresa existe antes de migrar
--- Se a coluna existir, migra os dados
-INSERT INTO empresas (nome, usuario_criador_id)
-SELECT DISTINCT nomeEmpresa, MIN(id) as primeiro_usuario_id
-FROM usuario 
-WHERE fazParteEmpresa = 1 
-  AND nomeEmpresa IS NOT NULL 
-  AND nomeEmpresa != ''
-  AND NOT EXISTS (
-    SELECT 1 FROM empresas WHERE empresas.nome = usuario.nomeEmpresa
-  )
-GROUP BY nomeEmpresa
-HAVING COUNT(*) > 0;
-
--- Atualiza empresa_id nos usuários baseado no nomeEmpresa (se a coluna existir)
-UPDATE usuario u
-INNER JOIN empresas e ON u.nomeEmpresa = e.nome
-SET u.empresa_id = e.id
-WHERE u.fazParteEmpresa = 1 
-  AND u.nomeEmpresa IS NOT NULL 
-  AND u.nomeEmpresa != '';
+-- A migração dos dados de nomeEmpresa/fazParteEmpresa para a tabela empresas
+-- foi movida para 14_migrate_empresa_data.sql, pois essas colunas só existem
+-- a partir da migração 05_add_profissional_fields.sql (que roda depois desta).

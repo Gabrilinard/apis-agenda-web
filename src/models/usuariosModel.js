@@ -26,6 +26,11 @@ const findByCpf = (cpfLimpo, cb) => {
   });
 };
 
+const findFullByCpf = async (cpfLimpo) => {
+  const [rows] = await dbPromise.query('SELECT * FROM usuario WHERE cpf = ? LIMIT 1', [cpfLimpo]);
+  return rows && rows[0] ? rows[0] : null;
+};
+
 const cpfExists = async (cpfLimpo) => {
   const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE cpf = ? LIMIT 1', [cpfLimpo]);
   return Array.isArray(rows) && rows.length > 0;
@@ -149,6 +154,7 @@ module.exports = {
   findBasicById,
   findIdByEmail,
   findByCpf,
+  findFullByCpf,
   cpfExists,
   emailExists,
   numeroConselhoExists,

@@ -69,14 +69,26 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'CPF inválido.' });
   }
 
-  const cpfJaExiste = await usuariosModel.cpfExists(cpfLimpo);
-  if (cpfJaExiste) {
-    return res.status(409).json({ error: 'Já existe um usuário cadastrado com esses dados.' });
+  const existingUserByCpf = await usuariosModel.findFullByCpf(cpfLimpo);
+  let upgradeUserId = null;
+
+  if (existingUserByCpf) {
+    const mesmoEmail = existingUserByCpf.email.toLowerCase() === String(email).toLowerCase();
+    const senhaConfere = mesmoEmail && (await bcrypt.compare(senha, existingUserByCpf.senha));
+    const podeVirarProfissional =
+      tipoUsuario === 'profissional' && existingUserByCpf.tipoUsuario === 'paciente' && mesmoEmail && senhaConfere;
+
+    if (!podeVirarProfissional) {
+      return res.status(409).json({ error: 'Já existe um usuário cadastrado com esses dados.' });
+    }
+    upgradeUserId = existingUserByCpf.id;
   }
 
-  const emailJaExiste = await usuariosModel.emailExists(email);
-  if (emailJaExiste) {
-    return res.status(409).json({ error: 'Este e-mail já está cadastrado.', field: 'email' });
+  if (!upgradeUserId) {
+    const emailJaExiste = await usuariosModel.emailExists(email);
+    if (emailJaExiste) {
+      return res.status(409).json({ error: 'Este e-mail já está cadastrado.', field: 'email' });
+    }
   }
 
   if (tipoUsuario === 'profissional') {
@@ -130,6 +142,39 @@ router.post('/register', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(senha, 10);
+
+    if (upgradeUserId) {
+      const fields = ['nome = ?', 'sobrenome = ?', 'telefone = ?', 'senha = ?', 'tipoUsuario = ?'];
+      const values = [nome, sobrenome, telefone, hashedPassword, 'profissional'];
+
+      const tipoProfissionalFinal =
+        tipoProfissional === 'medico' ? especialidadeMedica : tipoProfissional === 'outros' ? profissaoCustomizada : tipoProfissional;
+      fields.push('tipoProfissional = ?'); values.push(tipoProfissionalFinal);
+      fields.push('numeroConselho = ?'); values.push(numeroConselho.trim());
+      fields.push('ufRegiao = ?'); values.push(ufRegiao.trim());
+      if (cidade) { fields.push('cidade = ?'); values.push(cidade.trim()); }
+      if (latitude) { fields.push('latitude = ?'); values.push(latitude); }
+      if (longitude) { fields.push('longitude = ?'); values.push(longitude); }
+      if (descricao) { fields.push('descricao = ?'); values.push(descricao.trim()); }
+      if (publicoAtendido) { fields.push('publicoAtendido = ?'); values.push(publicoAtendido.trim()); }
+      if (modalidade) { fields.push('modalidade = ?'); values.push(modalidade.trim()); }
+      if (valorConsulta) { fields.push('valorConsulta = ?'); values.push(valorConsulta); }
+      if (diasAtendimento) {
+        fields.push('diasAtendimento = ?');
+        values.push(typeof diasAtendimento === 'object' ? JSON.stringify(diasAtendimento) : diasAtendimento);
+      }
+      if (horariosAtendimento) {
+        fields.push('horariosAtendimento = ?');
+        values.push(typeof horariosAtendimento === 'object' ? JSON.stringify(horariosAtendimento) : horariosAtendimento);
+      }
+
+      values.push(upgradeUserId);
+      pool.query(`UPDATE usuario SET ${fields.join(', ')} WHERE id = ?`, values, (err) => {
+        if (err) return res.status(400).json({ error: `Erro ao atualizar conta: ${err.sqlMessage}` });
+        res.json({ message: 'Conta atualizada para profissional com sucesso!', id: upgradeUserId });
+      });
+      return;
+    }
 
     let query = 'INSERT INTO usuario (nome, sobrenome, telefone, email, senha, cpf';
     const values = [nome, sobrenome, telefone, email, hashedPassword, cpfLimpo];
