@@ -108,6 +108,29 @@ const updateLocation = (id, payload, cb) => {
   );
 };
 
+const updatePerfil = (id, payload, cb) => {
+  const updates = [];
+  const values = [];
+
+  if (payload.nome !== undefined) {
+    updates.push('nome = ?');
+    values.push(payload.nome);
+  }
+  if (payload.sobrenome !== undefined) {
+    updates.push('sobrenome = ?');
+    values.push(payload.sobrenome);
+  }
+  if (payload.telefone !== undefined) {
+    updates.push('telefone = ?');
+    values.push(payload.telefone);
+  }
+
+  if (updates.length === 0) return cb(null, { affectedRows: 0 });
+
+  values.push(id);
+  pool.query(`UPDATE usuario SET ${updates.join(', ')} WHERE id = ?`, values, cb);
+};
+
 const updateInformacoes = (id, payload, cb) => {
   const updates = [];
   const values = [];
@@ -167,6 +190,7 @@ module.exports = {
   listLoggedUsers,
   getUserInfoById,
   updateLocation,
-  updateInformacoes
+  updateInformacoes,
+  updatePerfil
 };
 

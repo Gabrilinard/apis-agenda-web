@@ -7,8 +7,7 @@ const serializeLogin = (user, token) => {
       sobrenome: user.sobrenome,
       telefone: user.telefone,
       email: user.email,
-      tipoUsuario: user.tipoUsuario || 'paciente',
-      temAcessoPaciente: !!user.temAcessoPaciente
+      tipoUsuario: user.tipoUsuario || 'paciente'
     }
   };
 };

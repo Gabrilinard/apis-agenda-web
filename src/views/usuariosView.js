@@ -42,6 +42,14 @@ router.patch('/usuarios/:id/localizacao', (req, res) => {
   });
 });
 
+router.patch('/usuarios/:id/perfil', (req, res) => {
+  usuariosModel.updatePerfil(req.params.id, req.body || {}, (err, result) => {
+    if (err) return res.status(500).json({ error: 'Erro ao atualizar perfil.' });
+    if (!result || result.affectedRows === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    res.json({ message: 'Perfil atualizado com sucesso.' });
+  });
+});
+
 router.patch('/usuarios/:id/informacoes', (req, res) => {
   usuariosModel.updateInformacoes(req.params.id, req.body || {}, (err) => {
     if (err) return res.status(500).json({ error: 'Erro ao atualizar informações.' });
