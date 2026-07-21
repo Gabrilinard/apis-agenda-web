@@ -144,8 +144,8 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(senha, 10);
 
     if (upgradeUserId) {
-      const fields = ['nome = ?', 'sobrenome = ?', 'telefone = ?', 'senha = ?', 'tipoUsuario = ?'];
-      const values = [nome, sobrenome, telefone, hashedPassword, 'profissional'];
+      const fields = ['nome = ?', 'sobrenome = ?', 'telefone = ?', 'senha = ?', 'tipoUsuario = ?', 'temAcessoPaciente = ?'];
+      const values = [nome, sobrenome, telefone, hashedPassword, 'profissional', 1];
 
       const tipoProfissionalFinal =
         tipoProfissional === 'medico' ? especialidadeMedica : tipoProfissional === 'outros' ? profissaoCustomizada : tipoProfissional;
