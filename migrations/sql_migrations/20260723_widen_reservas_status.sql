@@ -1,0 +1,1 @@
+ALTER TABLE reservas MODIFY COLUMN status VARCHAR(50) DEFAULT 'pendente';
