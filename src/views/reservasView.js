@@ -1,5 +1,5 @@
 const express = require('express');
-const { upload, USE_S3 } = require('../middlewares/upload');
+const { upload, USE_S3, getFileUrl } = require('../middlewares/upload');
 const { dbPromise } = require('../db');
 const reservasModel = require('../models/reservasModel');
 const profissionaisModel = require('../models/profissionaisModel');
@@ -11,10 +11,10 @@ const router = express.Router();
 router.use(authenticate);
 
 router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => {
-  const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status, is_urgente, descricao_urgencia } = req.body;
+  const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status, is_urgente, descricao_urgencia, modalidade_urgencia, turno_urgencia } = req.body;
 
   const arquivo_urgencia = req.file
-    ? (USE_S3 ? req.file.location : `/uploads/${req.file.filename}`)
+    ? (USE_S3 ? req.file.key : `/uploads/${req.file.filename}`)
     : null;
   const isUrgenteBoolean = is_urgente === 'true' || is_urgente === true;
 
@@ -38,7 +38,7 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
     {
       nome, sobrenome, telefone, email, dia, horario, horarioFinal,
       qntd_pessoa, usuario_id, profissional_id: profissionalIdFinal,
-      status: statusFinal, is_urgente: isUrgenteBoolean, descricao_urgencia, arquivo_urgencia
+      status: statusFinal, is_urgente: isUrgenteBoolean, descricao_urgencia, arquivo_urgencia, modalidade_urgencia, turno_urgencia
     },
     (err, result) => {
       if (err) return res.status(500).json({ error: 'Erro ao processar a reserva.' });
@@ -77,8 +77,11 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
 });
 
 router.get('/reservas/:id', (req, res) => {
-  reservasModel.getByUsuarioId(req.params.id, (err, results) => {
+  reservasModel.getByUsuarioId(req.params.id, async (err, results) => {
     if (err) return res.status(500).json(err);
+    for (const r of results) {
+      if (r.arquivo_urgencia) r.arquivo_urgencia = await getFileUrl(r.arquivo_urgencia);
+    }
     res.json(results);
   });
 });
@@ -99,8 +102,11 @@ router.delete('/reservas', (req, res) => {
 });
 
 router.get('/reservas', (req, res) => {
-  reservasModel.list(req.query, (err, results) => {
+  reservasModel.list(req.query, async (err, results) => {
     if (err) return res.status(500).json(err);
+    for (const r of results) {
+      if (r.arquivo_urgencia) r.arquivo_urgencia = await getFileUrl(r.arquivo_urgencia);
+    }
     res.json(results);
   });
 });

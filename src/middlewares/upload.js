@@ -2,14 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
-const { S3Client } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const USE_S3 = !!(process.env.S3_ENDPOINT && process.env.S3_ACCESS_KEY && process.env.S3_SECRET_KEY && process.env.S3_BUCKET);
 
 let upload;
+let s3;
 
 if (USE_S3) {
-  const s3 = new S3Client({
+  s3 = new S3Client({
     endpoint: process.env.S3_ENDPOINT,
     region: process.env.S3_REGION || 'auto',
     credentials: {
@@ -44,4 +46,23 @@ if (USE_S3) {
   upload = multer({ storage });
 }
 
-module.exports = { upload, USE_S3 };
+const extractS3Key = (stored) => {
+  if (!/^https?:\/\//.test(stored)) return stored;
+  try {
+    const url = new URL(stored);
+    const bucket = process.env.S3_BUCKET;
+    const prefix = `/${bucket}/`;
+    return url.pathname.startsWith(prefix) ? url.pathname.slice(prefix.length) : url.pathname.replace(/^\//, '');
+  } catch {
+    return stored;
+  }
+};
+
+const getFileUrl = async (stored) => {
+  if (!stored) return null;
+  if (!USE_S3) return stored;
+  const key = extractS3Key(stored);
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }), { expiresIn: 300 });
+};
+
+module.exports = { upload, USE_S3, getFileUrl };

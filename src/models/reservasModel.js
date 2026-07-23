@@ -15,11 +15,13 @@ const createReserva = (payload, cb) => {
     status,
     is_urgente,
     descricao_urgencia,
-    arquivo_urgencia
+    arquivo_urgencia,
+    modalidade_urgencia,
+    turno_urgencia
   } = payload;
 
   const sql =
-    'INSERT INTO reservas (nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id, status, is_urgente, descricao_urgencia, arquivo_urgencia) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    'INSERT INTO reservas (nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, profissional_id, status, is_urgente, descricao_urgencia, arquivo_urgencia, modalidade_urgencia, turno_urgencia) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
   pool.query(
     sql,
     [
@@ -36,7 +38,9 @@ const createReserva = (payload, cb) => {
       status,
       is_urgente,
       descricao_urgencia,
-      arquivo_urgencia
+      arquivo_urgencia,
+      modalidade_urgencia || null,
+      turno_urgencia || null
     ],
     cb
   );

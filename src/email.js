@@ -1,7 +1,14 @@
-const RESEND_API_KEY = 're_i5sR1uMS_7Ef1tW8deTkpNzn2uGiVrcg3';
-const FROM = 'Agende Aqui <onboarding@resend.dev>';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const FROM = process.env.EMAIL_FROM || 'Agende Aqui <onboarding@resend.dev>';
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
-const DEV_EMAIL = 'gabrielleite729@gmail.com';
+const DEV_EMAIL = process.env.DEV_EMAIL || 'gabrielleite729@gmail.com';
+
+if (!RESEND_API_KEY) {
+  console.error('[email] RESEND_API_KEY não configurada — envios de e-mail vão falhar.');
+}
+if (FROM.includes('onboarding@resend.dev')) {
+  console.warn('[email] Usando domínio de teste do Resend (onboarding@resend.dev): só é possível enviar para o e-mail dono da conta Resend. Verifique um domínio próprio e defina EMAIL_FROM.');
+}
 
 const send = async (to, subject, html) => {
   const isProd = process.env.NODE_ENV === 'production';
