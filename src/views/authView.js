@@ -31,6 +31,9 @@ router.post('/register', async (req, res) => {
     publicoAtendido,
     modalidade,
     valorConsulta,
+    valorPresencial,
+    valorOnline,
+    valorDomiciliar,
     diasAtendimento,
     horariosAtendimento
   } = req.body;
@@ -159,6 +162,9 @@ router.post('/register', async (req, res) => {
       if (publicoAtendido) { fields.push('publicoAtendido = ?'); values.push(publicoAtendido.trim()); }
       if (modalidade) { fields.push('modalidade = ?'); values.push(modalidade.trim()); }
       if (valorConsulta) { fields.push('valorConsulta = ?'); values.push(valorConsulta); }
+      if (valorPresencial) { fields.push('valorPresencial = ?'); values.push(valorPresencial); }
+      if (valorOnline) { fields.push('valorOnline = ?'); values.push(valorOnline); }
+      if (valorDomiciliar) { fields.push('valorDomiciliar = ?'); values.push(valorDomiciliar); }
       if (diasAtendimento) {
         fields.push('diasAtendimento = ?');
         values.push(typeof diasAtendimento === 'object' ? JSON.stringify(diasAtendimento) : diasAtendimento);
@@ -240,6 +246,24 @@ router.post('/register', async (req, res) => {
         query += ', valorConsulta';
         placeholders += ', ?';
         values.push(valorConsulta);
+      }
+
+      if (valorPresencial) {
+        query += ', valorPresencial';
+        placeholders += ', ?';
+        values.push(valorPresencial);
+      }
+
+      if (valorOnline) {
+        query += ', valorOnline';
+        placeholders += ', ?';
+        values.push(valorOnline);
+      }
+
+      if (valorDomiciliar) {
+        query += ', valorDomiciliar';
+        placeholders += ', ?';
+        values.push(valorDomiciliar);
       }
 
       if (diasAtendimento) {

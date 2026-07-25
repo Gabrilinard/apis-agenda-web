@@ -11,7 +11,7 @@ const router = express.Router();
 router.use(authenticate);
 
 router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => {
-  const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status, is_urgente, descricao_urgencia, modalidade_urgencia, turno_urgencia } = req.body;
+  const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status, is_urgente, descricao_urgencia, modalidade_urgencia, turno_urgencia, modalidade, valor } = req.body;
 
   const arquivo_urgencia = req.file
     ? (USE_S3 ? req.file.key : `/uploads/${req.file.filename}`)
@@ -38,7 +38,8 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
     {
       nome, sobrenome, telefone, email, dia, horario, horarioFinal,
       qntd_pessoa, usuario_id, profissional_id: profissionalIdFinal,
-      status: statusFinal, is_urgente: isUrgenteBoolean, descricao_urgencia, arquivo_urgencia, modalidade_urgencia, turno_urgencia
+      status: statusFinal, is_urgente: isUrgenteBoolean, descricao_urgencia, arquivo_urgencia, modalidade_urgencia, turno_urgencia,
+      modalidade, valor
     },
     (err, result) => {
       if (err) return res.status(500).json({ error: 'Erro ao processar a reserva.' });

@@ -92,7 +92,7 @@ const listLoggedUsers = (cb) => {
 
 const getUserInfoById = (id, cb) => {
   const query =
-    'SELECT id, nome, sobrenome, email, telefone, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, diasAtendimento, horariosAtendimento FROM usuario WHERE id = ?';
+    'SELECT id, nome, sobrenome, email, telefone, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, valorPresencial, valorOnline, valorDomiciliar, diasAtendimento, horariosAtendimento FROM usuario WHERE id = ?';
   pool.query(query, [id], (err, rows) => {
     if (err) return cb(err);
     cb(null, rows && rows[0] ? rows[0] : null);
@@ -154,6 +154,18 @@ const updateInformacoes = (id, payload, cb) => {
   if (payload.valorConsulta !== undefined) {
     updates.push('valorConsulta = ?');
     values.push(payload.valorConsulta);
+  }
+  if (payload.valorPresencial !== undefined) {
+    updates.push('valorPresencial = ?');
+    values.push(payload.valorPresencial);
+  }
+  if (payload.valorOnline !== undefined) {
+    updates.push('valorOnline = ?');
+    values.push(payload.valorOnline);
+  }
+  if (payload.valorDomiciliar !== undefined) {
+    updates.push('valorDomiciliar = ?');
+    values.push(payload.valorDomiciliar);
   }
   if (payload.diasAtendimento !== undefined) {
     updates.push('diasAtendimento = ?');
