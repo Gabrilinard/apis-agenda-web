@@ -239,6 +239,50 @@ const emailUrgenciaRemarcada = async ({ pacienteEmail, pacienteNome, profissiona
   `);
 };
 
+const emailUrgenciaLembreteProfissional = async ({ profissionalEmail, profissionalNome, pacienteNome, pacienteTelefone, descricao, horasDecorridas }) => {
+  const telStr = pacienteTelefone ? `<tr><td style="padding:6px 0;color:#666;font-size:13px">Telefone</td><td style="padding:6px 0;font-weight:600">${pacienteTelefone}</td></tr>` : '';
+  await send(profissionalEmail, '⚡ Urgência ainda sem resposta — Agende Aqui', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <div style="background:#FFF3EE;border-left:4px solid #E8611A;padding:12px 16px;border-radius:6px;margin-bottom:20px">
+        <span style="color:#C2410C;font-weight:700;font-size:13px">⚡ LEMBRETE — SOLICITAÇÃO URGENTE</span>
+      </div>
+      <h2 style="color:#1B4D3E;margin:0 0 8px">Ainda sem resposta há ${horasDecorridas}</h2>
+      <p>Olá <strong>Dr. ${profissionalNome}</strong>,</p>
+      <p>O paciente <strong>${pacienteNome}</strong> segue aguardando retorno da sua solicitação de atendimento urgente:</p>
+      <blockquote style="background:#F7F7F4;border-left:3px solid #E8611A;padding:10px 14px;border-radius:0 6px 6px 0;margin:16px 0;font-size:14px;color:#333;line-height:1.6">
+        ${descricao || 'Sem descrição'}
+      </blockquote>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        ${telStr}
+      </table>
+      <p style="color:#666;font-size:13px">Acesse o painel de urgências o quanto antes para aceitar ou propor um horário.</p>
+    </div>
+  `);
+};
+
+const emailUrgenciaLembretePaciente = async ({ pacienteEmail, pacienteNome, profissionalNome }) => {
+  const linkConsultas = `${APP_URL}/minhas-consultas`;
+  const linkProfissionais = `${APP_URL}/profissionais`;
+  await send(pacienteEmail, 'Ainda sem resposta à sua urgência — Agende Aqui', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <div style="background:#FFF7F0;border-left:4px solid #E8611A;padding:12px 16px;border-radius:6px;margin-bottom:20px">
+        <span style="color:#C2410C;font-weight:700;font-size:13px">⚡ CONSULTA EMERGENTE</span>
+      </div>
+      <h2 style="color:#1B4D3E">Sua solicitação ainda não foi respondida</h2>
+      <p>Olá <strong>${pacienteNome}</strong>,</p>
+      <p>Já se passou mais de <strong>1 hora</strong> e o profissional <strong>Dr. ${profissionalNome}</strong> ainda não respondeu à sua solicitação de urgência.</p>
+      <p>Se preferir, você pode continuar aguardando ou escolher outro profissional disponível agora:</p>
+      <a href="${linkProfissionais}" style="display:inline-block;background:#E8611A;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:8px">
+        Ver outros profissionais
+      </a>
+      <p style="color:#666;font-size:13px;margin-top:20px">
+        Você também pode acompanhar ou cancelar essa solicitação em
+        <a href="${linkConsultas}" style="color:#1B4D3E">Minhas Consultas</a>.
+      </p>
+    </div>
+  `);
+};
+
 const emailRedefinicaoSenha = async ({ userEmail, userName, token }) => {
   const link = `${APP_URL}/ResetPassword?token=${token}`;
   await send(userEmail, 'Redefinição de senha — Agende Aqui', `
@@ -255,4 +299,4 @@ const emailRedefinicaoSenha = async ({ userEmail, userName, token }) => {
   `);
 };
 
-module.exports = { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga, emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada, emailRedefinicaoSenha };
+module.exports = { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga, emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada, emailUrgenciaLembreteProfissional, emailUrgenciaLembretePaciente, emailRedefinicaoSenha };

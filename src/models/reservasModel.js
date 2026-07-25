@@ -188,8 +188,33 @@ const editarReserva = async (id, payload) => {
   ]);
 };
 
+const listUrgenciasSemRespostaHaUmaHora = async () => {
+  const sql = `
+    SELECT r.id, r.dia, r.horario, r.descricao_urgencia, r.created_at,
+           pac.nome AS pac_nome, pac.sobrenome AS pac_sobrenome, pac.email AS pac_email, pac.telefone AS pac_telefone,
+           prof.nome AS prof_nome, prof.sobrenome AS prof_sobrenome, prof.email AS prof_email
+    FROM reservas r
+    LEFT JOIN usuario pac ON r.usuario_id = pac.id
+    LEFT JOIN usuario prof ON r.profissional_id = prof.id
+    WHERE r.is_urgente = 1
+      AND r.status = 'pendente'
+      AND r.lembrete_urgencia_enviado = 0
+      AND r.created_at <= NOW() - INTERVAL 1 HOUR
+      AND prof.email IS NOT NULL
+      AND pac.email IS NOT NULL
+  `;
+  const [rows] = await dbPromise.query(sql);
+  return rows;
+};
+
+const marcarLembreteUrgenciaEnviado = async (id) => {
+  await dbPromise.query('UPDATE reservas SET lembrete_urgencia_enviado = 1 WHERE id = ?', [id]);
+};
+
 module.exports = {
   createReserva,
+  listUrgenciasSemRespostaHaUmaHora,
+  marcarLembreteUrgenciaEnviado,
   getByUsuarioId,
   deleteByUsuarioHorarioDia,
   list,
