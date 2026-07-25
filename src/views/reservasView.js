@@ -150,6 +150,20 @@ router.patch('/reservas/:id', async (req, res) => {
               profissionalNome,
               dia, horario,
             }).catch(e => console.error('[confirmado email]', e.message));
+
+            const motivoSubstituicao = 'Horário preenchido por outro paciente';
+            reservasModel.getConflitantes(id, reserva.profissional_id, dia, horario, (errConf, conflitantes) => {
+              if (errConf || !conflitantes?.length) return;
+              reservasModel.negarConflitantes(id, reserva.profissional_id, dia, horario, () => {});
+              conflitantes.forEach(c => {
+                emailConsultaNegada({
+                  pacienteEmail: c.pac_email,
+                  pacienteNome: `${c.pac_nome} ${c.pac_sobrenome}`,
+                  profissionalNome,
+                  motivoNegacao: motivoSubstituicao,
+                }).catch(e => console.error('[negado por substituicao email]', e.message));
+              });
+            });
           } else if (newStatus === 'aguardando_confirmacao_paciente') {
             const emailFn = isUrgente ? emailUrgenciaRemarcada : emailConsultaRemarcada;
             emailFn({

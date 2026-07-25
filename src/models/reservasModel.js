@@ -145,6 +145,27 @@ const listExtra = (cb) => {
   pool.query(query, cb);
 };
 
+const negarConflitantes = (id, profissional_id, dia, horario, cb) => {
+  if (!profissional_id || !dia || !horario) return cb(null, { affectedRows: 0 });
+  const sql = `
+    UPDATE reservas
+    SET status = 'negado', motivoNegacao = 'Horário preenchido por outro paciente'
+    WHERE id != ? AND profissional_id = ? AND dia = ? AND horario = ? AND status != 'negado'
+  `;
+  pool.query(sql, [id, profissional_id, dia, horario], cb);
+};
+
+const getConflitantes = (id, profissional_id, dia, horario, cb) => {
+  if (!profissional_id || !dia || !horario) return cb(null, []);
+  const sql = `
+    SELECT r.id, u.nome AS pac_nome, u.sobrenome AS pac_sobrenome, u.email AS pac_email
+    FROM reservas r
+    LEFT JOIN usuario u ON r.usuario_id = u.id
+    WHERE r.id != ? AND r.profissional_id = ? AND r.dia = ? AND r.horario = ? AND r.status != 'negado'
+  `;
+  pool.query(sql, [id, profissional_id, dia, horario], cb);
+};
+
 const setNegado = (id, status, motivoNegacao, cb) => {
   const sql = `UPDATE reservas SET status = ? ${status === 'negado' ? ', motivoNegacao = ?' : ', motivoNegacao = NULL'} WHERE id = ?`;
   const params = status === 'negado' ? [status, motivoNegacao, id] : [status, id];
@@ -174,6 +195,8 @@ module.exports = {
   setAusente,
   listExtra,
   setNegado,
-  editarReserva
+  editarReserva,
+  negarConflitantes,
+  getConflitantes
 };
 
