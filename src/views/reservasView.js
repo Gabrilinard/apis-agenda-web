@@ -13,12 +13,19 @@ router.use(authenticate);
 router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => {
   const { nome, sobrenome, telefone, email, dia, horario, horarioFinal, qntd_pessoa, usuario_id, nomeProfissional, profissional_id, status, is_urgente, descricao_urgencia, modalidade_urgencia, turno_urgencia, modalidade, valor } = req.body;
 
+  const [[solicitante]] = await dbPromise.query('SELECT tipoUsuario FROM usuario WHERE id = ? LIMIT 1', [req.userId]);
+  if (!solicitante) return res.status(401).json({ error: 'Usuário não encontrado.' });
+
+  // Profissional pode criar reserva em nome de um paciente (busca por CPF), mas sempre como ele mesmo.
+  // Paciente só pode criar reserva para si mesmo.
+  const usuarioIdFinal = solicitante.tipoUsuario === 'profissional' ? (usuario_id || null) : req.userId;
+
   const arquivo_urgencia = req.file
     ? (USE_S3 ? req.file.key : `/uploads/${req.file.filename}`)
     : null;
   const isUrgenteBoolean = is_urgente === 'true' || is_urgente === true;
 
-  let profissionalIdFinal = profissional_id || null;
+  let profissionalIdFinal = solicitante.tipoUsuario === 'profissional' ? req.userId : (profissional_id || null);
 
   if (!profissionalIdFinal && nomeProfissional) {
     try {
@@ -37,7 +44,7 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
   reservasModel.createReserva(
     {
       nome, sobrenome, telefone, email, dia, horario, horarioFinal,
-      qntd_pessoa, usuario_id, profissional_id: profissionalIdFinal,
+      qntd_pessoa, usuario_id: usuarioIdFinal, profissional_id: profissionalIdFinal,
       status: statusFinal, is_urgente: isUrgenteBoolean, descricao_urgencia, arquivo_urgencia, modalidade_urgencia, turno_urgencia,
       modalidade, valor
     },
@@ -78,7 +85,7 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
 });
 
 router.get('/reservas/:id', (req, res) => {
-  reservasModel.getByUsuarioId(req.params.id, async (err, results) => {
+  reservasModel.getByUsuarioId(req.userId, async (err, results) => {
     if (err) return res.status(500).json(err);
     for (const r of results) {
       if (r.arquivo_urgencia) r.arquivo_urgencia = await getFileUrl(r.arquivo_urgencia);
@@ -102,14 +109,43 @@ router.delete('/reservas', (req, res) => {
   });
 });
 
-router.get('/reservas', (req, res) => {
-  reservasModel.list(req.query, async (err, results) => {
-    if (err) return res.status(500).json(err);
-    for (const r of results) {
-      if (r.arquivo_urgencia) r.arquivo_urgencia = await getFileUrl(r.arquivo_urgencia);
+router.get('/reservas', async (req, res) => {
+  try {
+    const [[usuario]] = await dbPromise.query('SELECT tipoUsuario FROM usuario WHERE id = ? LIMIT 1', [req.userId]);
+    if (!usuario) return res.status(401).json({ error: 'Usuário não encontrado.' });
+
+    const isProfissional = usuario.tipoUsuario === 'profissional';
+    const filters = { ...req.query };
+
+    // "usuario_id" ("minhas consultas" do paciente) nunca pode ser sobrescrito pelo cliente.
+    if (filters.usuario_id !== undefined) {
+      filters.usuario_id = req.userId;
     }
-    res.json(results);
-  });
+
+    // "profissional_id" só é forçado para o próprio profissional autenticado.
+    // Pacientes podem consultar o profissional_id de outra pessoa para ver horários
+    // disponíveis na tela de agendamento.
+    if (isProfissional && filters.profissional_id !== undefined) {
+      filters.profissional_id = req.userId;
+    }
+
+    // Sem nenhum filtro informado: nunca retornar a tabela inteira, sempre restringir
+    // ao próprio usuário autenticado.
+    if (filters.usuario_id === undefined && filters.profissional_id === undefined) {
+      if (isProfissional) filters.profissional_id = req.userId;
+      else filters.usuario_id = req.userId;
+    }
+
+    reservasModel.list(filters, async (err, results) => {
+      if (err) return res.status(500).json(err);
+      for (const r of results) {
+        if (r.arquivo_urgencia) r.arquivo_urgencia = await getFileUrl(r.arquivo_urgencia);
+      }
+      res.json(results);
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar reservas' });
+  }
 });
 
 router.patch('/reservas/:id', async (req, res) => {
