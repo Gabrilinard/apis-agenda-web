@@ -92,7 +92,7 @@ const listLoggedUsers = (cb) => {
 
 const getUserInfoById = (id, cb) => {
   const query =
-    'SELECT id, nome, sobrenome, email, telefone, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, valorPresencial, valorOnline, valorDomiciliar, diasAtendimento, horariosAtendimento FROM usuario WHERE id = ?';
+    'SELECT id, nome, sobrenome, email, telefone, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, valorPresencial, valorOnline, valorDomiciliar, diasAtendimento, horariosAtendimento, aceitandoConsultas FROM usuario WHERE id = ?';
   pool.query(query, [id], (err, rows) => {
     if (err) return cb(err);
     cb(null, rows && rows[0] ? rows[0] : null);
@@ -176,6 +176,10 @@ const updateInformacoes = (id, payload, cb) => {
     values.push(
       typeof payload.horariosAtendimento === 'object' ? JSON.stringify(payload.horariosAtendimento) : payload.horariosAtendimento
     );
+  }
+  if (payload.aceitandoConsultas !== undefined) {
+    updates.push('aceitandoConsultas = ?');
+    values.push(payload.aceitandoConsultas ? 1 : 0);
   }
 
   if (updates.length === 0) return cb(null, { affectedRows: 0 });

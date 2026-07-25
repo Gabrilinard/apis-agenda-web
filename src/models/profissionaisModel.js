@@ -19,8 +19,9 @@ const listProfissionais = (cb) => {
       u.email,
       u.telefone
     FROM usuario u
-    WHERE u.tipoUsuario = 'profissional' 
+    WHERE u.tipoUsuario = 'profissional'
       AND (u.empresa_id IS NULL OR u.empresa_id = 0)
+      AND u.aceitandoConsultas = 1
     ORDER BY u.nome ASC
   `;
   pool.query(query, cb);
@@ -92,6 +93,7 @@ const listPorCategoria = (categoria, cb) => {
     LEFT JOIN avaliacoes a ON a.profissional_id = u.id
     WHERE u.tipoUsuario = 'profissional'
       AND (u.empresa_id IS NULL OR u.empresa_id = 0)
+      AND u.aceitandoConsultas = 1
     GROUP BY u.id
     ORDER BY u.nome ASC
   `;

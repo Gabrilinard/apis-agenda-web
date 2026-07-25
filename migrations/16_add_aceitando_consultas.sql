@@ -1,0 +1,1 @@
+ALTER TABLE usuario ADD COLUMN aceitandoConsultas TINYINT(1) NOT NULL DEFAULT 1;
