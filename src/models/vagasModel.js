@@ -51,14 +51,51 @@ const criarNotificacao = async ({ profissional_id, reserva_liberada_id, dia, hor
 
 const getPendentesPorUsuario = async (usuario_id) => {
   const [rows] = await dbPromise.query(`
-    SELECT n.*, u.nome AS prof_nome, u.sobrenome AS prof_sobrenome
+    SELECT n.*, u.nome AS prof_nome, u.sobrenome AS prof_sobrenome, u.genero AS prof_genero
     FROM notificacoes_vaga n
     JOIN usuario u ON n.profissional_id = u.id
     WHERE n.usuario_notificado_id = ?
       AND n.status = 'pendente'
     ORDER BY n.created_at DESC
   `, [usuario_id]);
-  return rows;
+
+  if (rows.length === 0) return rows;
+
+  const profissionalIds = [...new Set(rows.map((r) => r.profissional_id))];
+  const placeholders = profissionalIds.map(() => '?').join(',');
+
+  const [totalPorProf] = await dbPromise.query(`
+    SELECT profissional_id, COUNT(*) AS total
+    FROM reservas
+    WHERE usuario_id = ? AND profissional_id IN (${placeholders}) AND status IN ('pendente', 'confirmado')
+    GROUP BY profissional_id
+  `, [usuario_id, ...profissionalIds]);
+
+  const [aceitasPorProf] = await dbPromise.query(`
+    SELECT profissional_id, COUNT(*) AS total
+    FROM notificacoes_vaga
+    WHERE usuario_notificado_id = ? AND profissional_id IN (${placeholders}) AND status = 'aceita'
+    GROUP BY profissional_id
+  `, [usuario_id, ...profissionalIds]);
+
+  const totalMap = Object.fromEntries(totalPorProf.map((d) => [d.profissional_id, d.total]));
+  const aceitasMap = Object.fromEntries(aceitasPorProf.map((d) => [d.profissional_id, d.total]));
+
+  const profissionaisComSaldo = new Set(
+    profissionalIds.filter((id) => (totalMap[id] || 0) - (aceitasMap[id] || 0) > 0)
+  );
+
+  const validas = rows.filter((r) => profissionaisComSaldo.has(r.profissional_id));
+  const invalidasIds = rows.filter((r) => !profissionaisComSaldo.has(r.profissional_id)).map((r) => r.id);
+
+  if (invalidasIds.length > 0) {
+    await dbPromise.query(
+      `UPDATE notificacoes_vaga SET status = 'expirada' WHERE id IN (${invalidasIds.map(() => '?').join(',')})`,
+      invalidasIds
+    );
+  }
+
+  return validas;
 };
 
 const getNotificacaoPorIdEToken = async (id, token) => {
@@ -84,4 +121,46 @@ const expirarOutras = async (profissional_id, dia, horario, exceto_id) => {
   );
 };
 
-module.exports = { getCandidatos, criarNotificacao, getPendentesPorUsuario, getNotificacaoPorIdEToken, aceitarNotificacao, recusarNotificacao, expirarOutras };
+// Consultas do próprio candidato com aquele profissional que ainda podem ser
+// trocadas por um horário liberado, da mais recente para a mais antiga.
+const getReservasCandidatoDisponiveis = async (usuario_id, profissional_id) => {
+  const [rows] = await dbPromise.query(`
+    SELECT id, dia, horario, is_urgente
+    FROM reservas
+    WHERE usuario_id = ? AND profissional_id = ? AND status IN ('pendente', 'confirmado')
+    ORDER BY created_at DESC, id DESC
+  `, [usuario_id, profissional_id]);
+  return rows;
+};
+
+// Quantas notificações desse par candidato+profissional já foram aceitas — cada
+// aceite já consumiu (moveu) exatamente uma das consultas do candidato.
+const contarNotificacoesAceitas = async (usuario_notificado_id, profissional_id, exceto_id) => {
+  const [[row]] = await dbPromise.query(`
+    SELECT COUNT(*) AS total FROM notificacoes_vaga
+    WHERE usuario_notificado_id = ? AND profissional_id = ? AND status = 'aceita' AND id != ?
+  `, [usuario_notificado_id, profissional_id, exceto_id]);
+  return row.total;
+};
+
+// Quando o candidato fica sem nenhuma consulta própria para trocar, as demais
+// notificações pendentes dele com aquele profissional deixam de fazer sentido.
+const expirarPendentesSemReserva = async (usuario_notificado_id, profissional_id, exceto_id) => {
+  await dbPromise.query(
+    'UPDATE notificacoes_vaga SET status = "expirada" WHERE usuario_notificado_id = ? AND profissional_id = ? AND id != ? AND status = "pendente"',
+    [usuario_notificado_id, profissional_id, exceto_id]
+  );
+};
+
+module.exports = {
+  getCandidatos,
+  criarNotificacao,
+  getPendentesPorUsuario,
+  getNotificacaoPorIdEToken,
+  aceitarNotificacao,
+  recusarNotificacao,
+  expirarOutras,
+  getReservasCandidatoDisponiveis,
+  contarNotificacoesAceitas,
+  expirarPendentesSemReserva,
+};

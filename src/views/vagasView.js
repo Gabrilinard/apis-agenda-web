@@ -2,10 +2,118 @@ const express = require('express');
 const { dbPromise } = require('../db');
 const vagasModel = require('../models/vagasModel');
 const { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga } = require('../email');
+const { authenticate } = require('../middlewares/auth');
 
 const router = express.Router();
 
-router.post('/vagas/liberar/:reservaId', async (req, res) => {
+const JANELA_DESEMPATE_MS = 1200;
+const janelasDesempate = new Map(); // chave -> { timer, attempts: [{ notificacaoId, token, resolve }] }
+
+const construirDataHora = (diaStr, horarioStr) => {
+  const [ano, mes, dia] = String(diaStr).split('T')[0].split('-').map(Number);
+  const [hh, mm] = String(horarioStr || '0:0').split(':').map(Number);
+  return new Date(ano, (mes || 1) - 1, dia || 1, hh || 0, mm || 0, 0, 0);
+};
+
+const processarJanelaDesempate = async (chave) => {
+  const janela = janelasDesempate.get(chave);
+  janelasDesempate.delete(chave);
+  if (!janela) return;
+
+  const candidatas = [];
+
+  for (const tentativa of janela.attempts) {
+    try {
+      const notif = await vagasModel.getNotificacaoPorIdEToken(tentativa.notificacaoId, tentativa.token);
+      if (!notif) {
+        tentativa.resolve({ ok: false, motivo: 'Notificação não encontrada ou já processada.' });
+        continue;
+      }
+
+      const [disponiveis, jaConsumidas] = await Promise.all([
+        vagasModel.getReservasCandidatoDisponiveis(notif.usuario_notificado_id, notif.profissional_id),
+        vagasModel.contarNotificacoesAceitas(notif.usuario_notificado_id, notif.profissional_id, notif.id),
+      ]);
+      const reservaParaMover = disponiveis[jaConsumidas];
+
+      if (!reservaParaMover) {
+        await vagasModel.recusarNotificacao(notif.id);
+        tentativa.resolve({ ok: false, motivo: 'Você não tem mais consultas disponíveis para trocar por esta vaga.' });
+        continue;
+      }
+
+      const liberadoDT = construirDataHora(notif.dia, notif.horario);
+      const candidatoDT = construirDataHora(reservaParaMover.dia, reservaParaMover.horario);
+
+      candidatas.push({
+        notif, reservaParaMover, disponiveis, jaConsumidas, tentativa,
+        isUrgente: Number(reservaParaMover.is_urgente) === 1,
+        distanciaMs: Math.abs(candidatoDT.getTime() - liberadoDT.getTime()),
+      });
+    } catch (e) {
+      console.error('[aceitar/janela]', e);
+      tentativa.resolve({ ok: false, motivo: 'Erro ao processar aceite.' });
+    }
+  }
+
+  if (candidatas.length === 0) return;
+
+  // Prioridade: consulta emergencial primeiro; empatando (ou entre não-emergenciais),
+  // quem estava com a consulta mais próxima (data/horário) da vaga liberada.
+  candidatas.sort((a, b) => {
+    if (a.isUrgente !== b.isUrgente) return a.isUrgente ? -1 : 1;
+    return a.distanciaMs - b.distanciaMs;
+  });
+
+  const [vencedora, ...perdedoras] = candidatas;
+  const { notif, reservaParaMover, disponiveis, jaConsumidas } = vencedora;
+
+  try {
+    await dbPromise.query(
+      'UPDATE reservas SET dia = ?, horario = ?, horarioFinal = ?, status = "confirmado" WHERE id = ?',
+      [notif.dia, notif.horario, notif.horarioFinal, reservaParaMover.id]
+    );
+
+    if (notif.reserva_liberada_id) {
+      await dbPromise.query('UPDATE reservas SET status = "transferido" WHERE id = ?', [notif.reserva_liberada_id]);
+    }
+
+    await vagasModel.aceitarNotificacao(notif.id);
+    await vagasModel.expirarOutras(notif.profissional_id, notif.dia, notif.horario, notif.id);
+
+    if (disponiveis.length - jaConsumidas - 1 <= 0) {
+      await vagasModel.expirarPendentesSemReserva(notif.usuario_notificado_id, notif.profissional_id, notif.id);
+    }
+
+    const [[candidato]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [notif.usuario_notificado_id]);
+    const [[prof]] = await dbPromise.query('SELECT nome, sobrenome, email, genero FROM usuario WHERE id = ? LIMIT 1', [notif.profissional_id]);
+
+    if (candidato && prof) {
+      emailConfirmacaoVaga({
+        pacienteEmail: candidato.email,
+        pacienteNome: `${candidato.nome} ${candidato.sobrenome}`,
+        profissionalEmail: prof.email,
+        profissionalNome: `${prof.nome} ${prof.sobrenome}`,
+        profissionalGenero: prof.genero,
+        dia: notif.dia,
+        horario: notif.horario,
+      }).catch(e => console.error('[aceitar] email error:', e.message));
+    }
+
+    vencedora.tentativa.resolve({ ok: true });
+  } catch (e) {
+    console.error('[aceitar/vencedora]', e);
+    vencedora.tentativa.resolve({ ok: false, motivo: 'Erro ao aceitar vaga.' });
+  }
+
+  // As demais notificações pendentes dessa vaga já foram expiradas por expirarOutras
+  // acima (mesmo profissional_id + dia + horario) — só resta avisar quem perdeu.
+  for (const perdedora of perdedoras) {
+    perdedora.tentativa.resolve({ ok: false, motivo: 'Outro paciente confirmou essa vaga primeiro.' });
+  }
+};
+
+router.post('/vagas/liberar/:reservaId', authenticate, async (req, res) => {
   const { reservaId } = req.params;
   try {
     const [[reserva]] = await dbPromise.query(
@@ -13,11 +121,14 @@ router.post('/vagas/liberar/:reservaId', async (req, res) => {
       [reservaId]
     );
     if (!reserva) return res.status(404).json({ error: 'Reserva não encontrada.' });
+    if (reserva.usuario_id !== req.userId) {
+      return res.status(403).json({ error: 'Você não tem permissão para liberar esta reserva.' });
+    }
 
     await dbPromise.query('UPDATE reservas SET status = "liberado" WHERE id = ?', [reservaId]);
 
     const [[prof]] = await dbPromise.query(
-      'SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1',
+      'SELECT nome, sobrenome, email, genero FROM usuario WHERE id = ? LIMIT 1',
       [reserva.profissional_id]
     );
 
@@ -28,6 +139,7 @@ router.post('/vagas/liberar/:reservaId', async (req, res) => {
         pacienteNome: `${reserva.pac_nome} ${reserva.pac_sobrenome}`,
         profissionalEmail: prof.email,
         profissionalNome: `${prof.nome} ${prof.sobrenome}`,
+        profissionalGenero: prof.genero,
         dia,
         horario: reserva.horario,
       }).catch(e => console.error('[liberar] email error:', e.message));
@@ -63,13 +175,14 @@ router.post('/vagas/notificar', async (req, res) => {
     });
 
     const [[candidato]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [usuario_notificado_id]);
-    const [[prof]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [profissional_id]);
+    const [[prof]] = await dbPromise.query('SELECT nome, sobrenome, email, genero FROM usuario WHERE id = ? LIMIT 1', [profissional_id]);
 
     if (candidato && prof) {
       emailNotificacaoVaga({
         candidatoEmail: candidato.email,
         candidatoNome: `${candidato.nome} ${candidato.sobrenome}`,
         profissionalNome: `${prof.nome} ${prof.sobrenome}`,
+        profissionalGenero: prof.genero,
         dia,
         horario,
         notificacaoId,
@@ -102,34 +215,21 @@ router.post('/vagas/aceitar/:notificacaoId', async (req, res) => {
     const notif = await vagasModel.getNotificacaoPorIdEToken(notificacaoId, token);
     if (!notif) return res.status(404).json({ error: 'Notificação não encontrada ou já processada.' });
 
-    if (notif.reserva_candidato_id) {
-      await dbPromise.query(
-        'UPDATE reservas SET dia = ?, horario = ?, horarioFinal = ?, status = "confirmado" WHERE id = ?',
-        [notif.dia, notif.horario, notif.horarioFinal, notif.reserva_candidato_id]
-      );
+    const chave = notif.reserva_liberada_id ? `liberada-${notif.reserva_liberada_id}` : `notif-${notif.id}`;
+
+    const resultado = await new Promise((resolve) => {
+      let janela = janelasDesempate.get(chave);
+      if (!janela) {
+        janela = { attempts: [] };
+        janela.timer = setTimeout(() => processarJanelaDesempate(chave), JANELA_DESEMPATE_MS);
+        janelasDesempate.set(chave, janela);
+      }
+      janela.attempts.push({ notificacaoId, token, resolve });
+    });
+
+    if (!resultado.ok) {
+      return res.status(409).json({ error: resultado.motivo || 'Não foi possível aceitar esta vaga.' });
     }
-
-    if (notif.reserva_liberada_id) {
-      await dbPromise.query('UPDATE reservas SET status = "transferido" WHERE id = ?', [notif.reserva_liberada_id]);
-    }
-
-    await vagasModel.aceitarNotificacao(notificacaoId);
-    await vagasModel.expirarOutras(notif.profissional_id, notif.dia, notif.horario, notificacaoId);
-
-    const [[candidato]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [notif.usuario_notificado_id]);
-    const [[prof]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [notif.profissional_id]);
-
-    if (candidato && prof) {
-      emailConfirmacaoVaga({
-        pacienteEmail: candidato.email,
-        pacienteNome: `${candidato.nome} ${candidato.sobrenome}`,
-        profissionalEmail: prof.email,
-        profissionalNome: `${prof.nome} ${prof.sobrenome}`,
-        dia: notif.dia,
-        horario: notif.horario,
-      }).catch(e => console.error('[aceitar] email error:', e.message));
-    }
-
     res.json({ success: true, message: 'Vaga aceita com sucesso!' });
   } catch (e) {
     console.error('[aceitar]', e);
