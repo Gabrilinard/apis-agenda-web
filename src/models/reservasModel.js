@@ -192,7 +192,7 @@ const listUrgenciasSemRespostaHaUmaHora = async () => {
   const sql = `
     SELECT r.id, r.dia, r.horario, r.descricao_urgencia, r.created_at,
            pac.nome AS pac_nome, pac.sobrenome AS pac_sobrenome, pac.email AS pac_email, pac.telefone AS pac_telefone,
-           prof.nome AS prof_nome, prof.sobrenome AS prof_sobrenome, prof.email AS prof_email
+           prof.nome AS prof_nome, prof.sobrenome AS prof_sobrenome, prof.email AS prof_email, prof.genero AS prof_genero
     FROM reservas r
     LEFT JOIN usuario pac ON r.usuario_id = pac.id
     LEFT JOIN usuario prof ON r.profissional_id = prof.id

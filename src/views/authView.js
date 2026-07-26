@@ -7,6 +7,7 @@ const { dbPromise, pool } = require('../db');
 const usuariosModel = require('../models/usuariosModel');
 const { serializeLogin } = require('../serializers/authSerializer');
 const { emailRedefinicaoSenha } = require('../email');
+const { GENEROS_VALIDOS } = require('../utils/titulo');
 
 const router = express.Router();
 
@@ -18,6 +19,7 @@ router.post('/register', async (req, res) => {
     email,
     senha,
     cpf,
+    genero,
     tipoUsuario,
     tipoProfissional,
     especialidadeMedica,
@@ -40,6 +42,10 @@ router.post('/register', async (req, res) => {
 
   if (!nome || !sobrenome || !email || !senha || !cpf) {
     return res.status(400).json({ error: 'Todos os campos são obrigatórios!' });
+  }
+
+  if (genero && !GENEROS_VALIDOS.includes(genero)) {
+    return res.status(400).json({ error: 'Gênero inválido.' });
   }
 
   const cpfLimpo = cpf.replace(/\D/g, '');
@@ -150,6 +156,8 @@ router.post('/register', async (req, res) => {
       const fields = ['nome = ?', 'sobrenome = ?', 'telefone = ?', 'senha = ?', 'tipoUsuario = ?'];
       const values = [nome, sobrenome, telefone, hashedPassword, 'profissional'];
 
+      if (genero) { fields.push('genero = ?'); values.push(genero); }
+
       const tipoProfissionalFinal =
         tipoProfissional === 'medico' ? especialidadeMedica : tipoProfissional === 'outros' ? profissaoCustomizada : tipoProfissional;
       fields.push('tipoProfissional = ?'); values.push(tipoProfissionalFinal);
@@ -189,6 +197,12 @@ router.post('/register', async (req, res) => {
     query += ', tipoUsuario';
     placeholders += ', ?';
     values.push(tipoUsuario || 'paciente');
+
+    if (genero) {
+      query += ', genero';
+      placeholders += ', ?';
+      values.push(genero);
+    }
 
     if (tipoUsuario === 'profissional') {
       query += ', tipoProfissional';

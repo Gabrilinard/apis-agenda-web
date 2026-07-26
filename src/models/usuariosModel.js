@@ -92,7 +92,7 @@ const listLoggedUsers = (cb) => {
 
 const getUserInfoById = (id, cb) => {
   const query =
-    'SELECT id, nome, sobrenome, email, telefone, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, valorPresencial, valorOnline, valorDomiciliar, diasAtendimento, horariosAtendimento, aceitandoConsultas FROM usuario WHERE id = ?';
+    'SELECT id, nome, sobrenome, email, telefone, genero, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, valorPresencial, valorOnline, valorDomiciliar, diasAtendimento, horariosAtendimento, aceitandoConsultas FROM usuario WHERE id = ?';
   pool.query(query, [id], (err, rows) => {
     if (err) return cb(err);
     cb(null, rows && rows[0] ? rows[0] : null);
@@ -124,6 +124,10 @@ const updatePerfil = (id, payload, cb) => {
     updates.push('telefone = ?');
     values.push(payload.telefone);
   }
+  if (payload.genero !== undefined) {
+    updates.push('genero = ?');
+    values.push(payload.genero);
+  }
 
   if (updates.length === 0) return cb(null, { affectedRows: 0 });
 
@@ -135,6 +139,10 @@ const updateInformacoes = (id, payload, cb) => {
   const updates = [];
   const values = [];
 
+  if (payload.genero !== undefined) {
+    updates.push('genero = ?');
+    values.push(payload.genero);
+  }
   if (payload.tipoProfissional !== undefined) {
     updates.push('tipoProfissional = ?');
     values.push(payload.tipoProfissional);
