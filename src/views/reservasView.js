@@ -24,8 +24,7 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
     ? (USE_S3 ? req.file.key : `/uploads/${req.file.filename}`)
     : null;
   const isUrgenteBoolean = is_urgente === 'true' || is_urgente === true;
-
-  let profissionalIdFinal = solicitante.tipoUsuario === 'profissional' ? req.userId : (profissional_id || null);
+  let profissionalIdFinal = profissional_id || null;
 
   if (!profissionalIdFinal && nomeProfissional) {
     try {
@@ -37,6 +36,10 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
     } catch {
       profissionalIdFinal = profissionalIdFinal || null;
     }
+  }
+
+  if (!profissionalIdFinal && !nomeProfissional && solicitante.tipoUsuario === 'profissional') {
+    profissionalIdFinal = req.userId;
   }
 
   const statusFinal = status || 'pendente';
@@ -52,13 +55,14 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
       if (err) return res.status(500).json({ error: 'Erro ao processar a reserva.' });
 
       if (profissionalIdFinal) {
-        dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [profissionalIdFinal])
+        dbPromise.query('SELECT nome, sobrenome, email, genero FROM usuario WHERE id = ? LIMIT 1', [profissionalIdFinal])
           .then(([[prof]]) => {
             if (!prof) return;
             if (isUrgenteBoolean) {
               emailNovaUrgencia({
                 profissionalEmail: prof.email,
                 profissionalNome: `${prof.nome} ${prof.sobrenome}`,
+                profissionalGenero: prof.genero,
                 pacienteNome: `${nome} ${sobrenome}`,
                 pacienteTelefone: telefone || '',
                 descricao: descricao_urgencia || '',
@@ -69,6 +73,7 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
               emailNovaConsulta({
                 profissionalEmail: prof.email,
                 profissionalNome: `${prof.nome} ${prof.sobrenome}`,
+                profissionalGenero: prof.genero,
                 pacienteNome: `${nome} ${sobrenome}`,
                 pacienteTelefone: telefone || '',
                 dia: dia || '',
@@ -117,20 +122,10 @@ router.get('/reservas', async (req, res) => {
     const isProfissional = usuario.tipoUsuario === 'profissional';
     const filters = { ...req.query };
 
-    // "usuario_id" ("minhas consultas" do paciente) nunca pode ser sobrescrito pelo cliente.
     if (filters.usuario_id !== undefined) {
       filters.usuario_id = req.userId;
     }
 
-    // "profissional_id" só é forçado para o próprio profissional autenticado.
-    // Pacientes podem consultar o profissional_id de outra pessoa para ver horários
-    // disponíveis na tela de agendamento.
-    if (isProfissional && filters.profissional_id !== undefined) {
-      filters.profissional_id = req.userId;
-    }
-
-    // Sem nenhum filtro informado: nunca retornar a tabela inteira, sempre restringir
-    // ao próprio usuário autenticado.
     if (filters.usuario_id === undefined && filters.profissional_id === undefined) {
       if (isProfissional) filters.profissional_id = req.userId;
       else filters.usuario_id = req.userId;
@@ -164,7 +159,7 @@ router.patch('/reservas/:id', async (req, res) => {
         const [[reserva]] = await dbPromise.query(`
           SELECT r.*, r.is_urgente,
                  u.nome AS pac_nome, u.sobrenome AS pac_sobrenome, u.email AS pac_email,
-                 p.nome AS prof_nome, p.sobrenome AS prof_sobrenome, p.email AS prof_email
+                 p.nome AS prof_nome, p.sobrenome AS prof_sobrenome, p.email AS prof_email, p.genero AS prof_genero
           FROM reservas r
           LEFT JOIN usuario u ON r.usuario_id = u.id
           LEFT JOIN usuario p ON r.profissional_id = p.id
@@ -177,6 +172,7 @@ router.patch('/reservas/:id', async (req, res) => {
           const isUrgente = Number(reserva.is_urgente) === 1;
           const pacienteNome = `${reserva.pac_nome} ${reserva.pac_sobrenome}`;
           const profissionalNome = `${reserva.prof_nome} ${reserva.prof_sobrenome}`;
+          const profissionalGenero = reserva.prof_genero;
 
           if (newStatus === 'confirmado') {
             const emailFn = isUrgente ? emailUrgenciaAceita : emailConsultaConfirmada;
@@ -185,6 +181,7 @@ router.patch('/reservas/:id', async (req, res) => {
               pacienteNome,
               profissionalEmail: reserva.prof_email,
               profissionalNome,
+              profissionalGenero,
               dia, horario,
             }).catch(e => console.error('[confirmado email]', e.message));
 
@@ -197,6 +194,7 @@ router.patch('/reservas/:id', async (req, res) => {
                   pacienteEmail: c.pac_email,
                   pacienteNome: `${c.pac_nome} ${c.pac_sobrenome}`,
                   profissionalNome,
+                  profissionalGenero,
                   motivoNegacao: motivoSubstituicao,
                 }).catch(e => console.error('[negado por substituicao email]', e.message));
               });
@@ -208,6 +206,7 @@ router.patch('/reservas/:id', async (req, res) => {
               pacienteNome,
               profissionalEmail: reserva.prof_email,
               profissionalNome,
+              profissionalGenero,
               novoDia: dia, novoHorario: horario,
             }).catch(e => console.error('[remarcada email]', e.message));
           } else if (newStatus === 'negado') {
@@ -215,6 +214,7 @@ router.patch('/reservas/:id', async (req, res) => {
               pacienteEmail: reserva.pac_email,
               pacienteNome,
               profissionalNome,
+              profissionalGenero,
               motivoNegacao: body.motivoNegacao || '',
             }).catch(e => console.error('[negado email]', e.message));
           }
@@ -240,12 +240,38 @@ router.put('/reservas/:id', async (req, res) => {
   }
 });
 
-router.delete('/reservas/:id', (req, res) => {
-  reservasModel.deleteById(req.params.id, (err, result) => {
-    if (err) return res.status(500).json({ error: 'Erro ao excluir reserva' });
-    if (!result || result.affectedRows === 0) return res.status(404).json({ message: 'Reserva não encontrada ou não pertence a este usuário' });
-    res.json({ message: 'Reserva removida com sucesso!' });
-  });
+router.delete('/reservas/:id', async (req, res) => {
+  try {
+    const [[reserva]] = await dbPromise.query(
+      'SELECT usuario_id, profissional_id, dia, horario FROM reservas WHERE id = ? LIMIT 1',
+      [req.params.id]
+    );
+    if (!reserva) return res.status(404).json({ message: 'Reserva não encontrada.' });
+    if (reserva.usuario_id !== req.userId && reserva.profissional_id !== req.userId) {
+      return res.status(403).json({ message: 'Você não tem permissão para excluir esta reserva.' });
+    }
+
+    // Paciente cancelando a própria consulta com menos de 24h de antecedência: não
+    // pode mais cancelar diretamente, só liberar o horário para outro paciente.
+    if (reserva.usuario_id === req.userId) {
+      const [ano, mes, diaNum] = String(reserva.dia).split('T')[0].split('-').map(Number);
+      const [hh, mm] = String(reserva.horario).split(':').map(Number);
+      const dataHora = new Date(ano, (mes || 1) - 1, diaNum || 1, hh || 0, mm || 0, 0, 0);
+      if (dataHora.getTime() - Date.now() < 24 * 60 * 60 * 1000) {
+        return res.status(403).json({
+          error: 'Faltam menos de 24h para a consulta — não é mais possível cancelar. Libere o horário para outro paciente.',
+        });
+      }
+    }
+
+    reservasModel.deleteById(req.params.id, (err, result) => {
+      if (err) return res.status(500).json({ error: 'Erro ao excluir reserva' });
+      if (!result || result.affectedRows === 0) return res.status(404).json({ message: 'Reserva não encontrada.' });
+      res.json({ message: 'Reserva removida com sucesso!' });
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao excluir reserva' });
+  }
 });
 
 router.put('/reservas/solicitar/:id', (req, res) => {
@@ -272,7 +298,7 @@ router.patch('/reservas/negado/:id', async (req, res) => {
 
     dbPromise.query(`
       SELECT u.nome AS pac_nome, u.sobrenome AS pac_sobrenome, u.email AS pac_email,
-             p.nome AS prof_nome, p.sobrenome AS prof_sobrenome
+             p.nome AS prof_nome, p.sobrenome AS prof_sobrenome, p.genero AS prof_genero
       FROM reservas r
       LEFT JOIN usuario u ON r.usuario_id = u.id
       LEFT JOIN usuario p ON r.profissional_id = p.id
@@ -284,6 +310,7 @@ router.patch('/reservas/negado/:id', async (req, res) => {
             pacienteEmail: reserva.pac_email,
             pacienteNome: `${reserva.pac_nome} ${reserva.pac_sobrenome}`,
             profissionalNome: `${reserva.prof_nome} ${reserva.prof_sobrenome}`,
+            profissionalGenero: reserva.prof_genero,
             motivoNegacao: motivoNegacao || '',
           }).catch(e => console.error('[negado email]', e.message));
         }
