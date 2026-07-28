@@ -196,6 +196,31 @@ const updateInformacoes = (id, payload, cb) => {
   pool.query(`UPDATE usuario SET ${updates.join(', ')} WHERE id = ?`, values, cb);
 };
 
+const contarAusenciasPosConfirmacao = async (usuario_id) => {
+  const [[row]] = await dbPromise.query(
+    "SELECT COUNT(*) AS total FROM reservas WHERE usuario_id = ? AND status = 'ausente' AND presenca_confirmada = 1",
+    [usuario_id]
+  );
+  return row.total;
+};
+
+const BLOQUEIO_DIAS = 60;
+
+const bloquearTemporariamente = async (usuario_id, motivo) => {
+  await dbPromise.query(
+    'UPDATE usuario SET bloqueado_ate = NOW() + INTERVAL ? DAY, motivo_bloqueio = ? WHERE id = ?',
+    [BLOQUEIO_DIAS, motivo, usuario_id]
+  );
+  const [[row]] = await dbPromise.query('SELECT bloqueado_ate FROM usuario WHERE id = ?', [usuario_id]);
+  return row.bloqueado_ate;
+};
+
+const getBloqueio = async (usuario_id) => {
+  const [[row]] = await dbPromise.query('SELECT bloqueado_ate, motivo_bloqueio FROM usuario WHERE id = ?', [usuario_id]);
+  if (!row || !row.bloqueado_ate || new Date(row.bloqueado_ate) <= new Date()) return null;
+  return row;
+};
+
 module.exports = {
   findByEmail,
   findBasicById,
@@ -215,6 +240,10 @@ module.exports = {
   getUserInfoById,
   updateLocation,
   updateInformacoes,
-  updatePerfil
+  updatePerfil,
+  contarAusenciasPosConfirmacao,
+  bloquearTemporariamente,
+  getBloqueio,
+  BLOQUEIO_DIAS,
 };
 
