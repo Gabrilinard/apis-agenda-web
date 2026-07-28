@@ -1,0 +1,1 @@
+ALTER TABLE reservas ADD COLUMN reagendado_em DATETIME NULL;

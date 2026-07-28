@@ -2,6 +2,7 @@ const config = require('./config');
 const { createApp } = require('./app');
 const { runSqlMigrations } = require('./migrations/runSqlMigrations');
 const { startUrgenciaLembreteJob } = require('./jobs/urgenciaLembrete');
+const { startConfirmacaoPresencaJob } = require('./jobs/confirmacaoPresenca');
 
 const start = async () => {
   await runSqlMigrations();
@@ -10,6 +11,7 @@ const start = async () => {
     console.log(`Servidor rodando na porta ${config.port}`);
   });
   startUrgenciaLembreteJob();
+  startConfirmacaoPresencaJob();
 };
 
 module.exports = {
