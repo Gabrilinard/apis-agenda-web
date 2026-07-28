@@ -3,6 +3,9 @@ const { upload, USE_S3, getFileUrl } = require('../middlewares/upload');
 const { dbPromise } = require('../db');
 const reservasModel = require('../models/reservasModel');
 const profissionaisModel = require('../models/profissionaisModel');
+const usuariosModel = require('../models/usuariosModel');
+const vagasModel = require('../models/vagasModel');
+const notificacoesPacienteModel = require('../models/notificacoesPacienteModel');
 const { emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada } = require('../email');
 const { authenticate } = require('../middlewares/auth');
 
@@ -19,6 +22,16 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
   // Profissional pode criar reserva em nome de um paciente (busca por CPF), mas sempre como ele mesmo.
   // Paciente só pode criar reserva para si mesmo.
   const usuarioIdFinal = solicitante.tipoUsuario === 'profissional' ? (usuario_id || null) : req.userId;
+
+  if (usuarioIdFinal) {
+    const bloqueio = await usuariosModel.getBloqueio(usuarioIdFinal);
+    if (bloqueio) {
+      const ateFmt = new Date(bloqueio.bloqueado_ate).toLocaleDateString('pt-BR');
+      return res.status(403).json({
+        error: `Este paciente está temporariamente impedido de agendar novas consultas até ${ateFmt} (${bloqueio.motivo_bloqueio || 'faltas em consultas confirmadas'}).`,
+      });
+    }
+  }
 
   const arquivo_urgencia = req.file
     ? (USE_S3 ? req.file.key : `/uploads/${req.file.filename}`)
@@ -185,6 +198,22 @@ router.patch('/reservas/:id', async (req, res) => {
               dia, horario,
             }).catch(e => console.error('[confirmado email]', e.message));
 
+            const [anoC, mesC, diaNumC] = dia.split('-');
+            notificacoesPacienteModel.criar({
+              usuario_id: reserva.usuario_id,
+              reserva_id: reserva.id,
+              mensagem: `${profissionalNome} confirmou sua consulta para ${diaNumC}/${mesC}/${anoC} às ${horario}.`,
+            }).catch(e => console.error('[confirmado notificacao paciente]', e.message));
+
+            if (reserva.reagendado_em) {
+              const [ano, mes, diaNum] = dia.split('-');
+              vagasModel.criarNotificacaoProfissional({
+                profissional_id: reserva.profissional_id,
+                reserva_id: reserva.id,
+                mensagem: `Consulta reagendada de ${pacienteNome} confirmada para ${diaNum}/${mes}/${ano} às ${horario}. Confira sua agenda.`,
+              }).catch(e => console.error('[confirmado notificacao profissional]', e.message));
+            }
+
             const motivoSubstituicao = 'Horário preenchido por outro paciente';
             reservasModel.getConflitantes(id, reserva.profissional_id, dia, horario, (errConf, conflitantes) => {
               if (errConf || !conflitantes?.length) return;
@@ -230,6 +259,16 @@ router.patch('/reservas/:id', async (req, res) => {
   }
 });
 
+router.patch('/reservas/:id/confirmar-presenca', async (req, res) => {
+  try {
+    const ok = await reservasModel.confirmarPresenca(req.params.id, req.userId);
+    if (!ok) return res.status(404).json({ error: 'Reserva não encontrada.' });
+    res.json({ success: true, message: 'Presença confirmada!' });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao confirmar presença.' });
+  }
+});
+
 router.put('/reservas/:id', async (req, res) => {
   try {
     const result = await reservasModel.updateReserva(req.params.id, req.body || {});
@@ -251,15 +290,13 @@ router.delete('/reservas/:id', async (req, res) => {
       return res.status(403).json({ message: 'Você não tem permissão para excluir esta reserva.' });
     }
 
-    // Paciente cancelando a própria consulta com menos de 24h de antecedência: não
-    // pode mais cancelar diretamente, só liberar o horário para outro paciente.
     if (reserva.usuario_id === req.userId) {
       const [ano, mes, diaNum] = String(reserva.dia).split('T')[0].split('-').map(Number);
       const [hh, mm] = String(reserva.horario).split(':').map(Number);
       const dataHora = new Date(ano, (mes || 1) - 1, diaNum || 1, hh || 0, mm || 0, 0, 0);
-      if (dataHora.getTime() - Date.now() < 24 * 60 * 60 * 1000) {
+      if (dataHora.getTime() - Date.now() < 48 * 60 * 60 * 1000) {
         return res.status(403).json({
-          error: 'Faltam menos de 24h para a consulta — não é mais possível cancelar. Libere o horário para outro paciente.',
+          error: 'Faltam menos de 48h para a consulta — não é mais possível cancelar. Libere o horário para outro paciente.',
         });
       }
     }
@@ -274,11 +311,36 @@ router.delete('/reservas/:id', async (req, res) => {
   }
 });
 
-router.put('/reservas/solicitar/:id', (req, res) => {
-  reservasModel.setAusente(req.params.id, req.body?.motivoFalta, (err, result) => {
+router.put('/reservas/solicitar/:id', async (req, res) => {
+  const [[reservaAntes]] = await dbPromise.query(
+    'SELECT usuario_id, presenca_confirmada FROM reservas WHERE id = ? LIMIT 1',
+    [req.params.id]
+  );
+
+  reservasModel.setAusente(req.params.id, req.body?.motivoFalta, async (err, result) => {
     if (err) return res.status(500).json({ success: false, message: 'Erro ao atualizar status' });
-    if (result.affectedRows > 0) return res.json({ success: true, message: 'Status atualizado para ausente e motivo registrado' });
-    return res.status(404).json({ success: false, message: 'Reserva não encontrada' });
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Reserva não encontrada' });
+
+    res.json({ success: true, message: 'Status atualizado para ausente e motivo registrado' });
+
+    if (reservaAntes && Number(reservaAntes.presenca_confirmada) === 1) {
+      try {
+        const total = await usuariosModel.contarAusenciasPosConfirmacao(reservaAntes.usuario_id);
+        if (total >= 2) {
+          const ate = await usuariosModel.bloquearTemporariamente(
+            reservaAntes.usuario_id,
+            'Ausência em consultas já confirmadas por você (2ª ocorrência ou mais).'
+          );
+          const ateFmt = new Date(ate).toLocaleDateString('pt-BR');
+          notificacoesPacienteModel.criar({
+            usuario_id: reservaAntes.usuario_id,
+            mensagem: `Você foi bloqueado temporariamente para novos agendamentos por ter faltado a consultas que já havia confirmado presença. Você poderá agendar novamente a partir de ${ateFmt}.`,
+          }).catch(e => console.error('[bloqueio notificacao paciente]', e.message));
+        }
+      } catch (e) {
+        console.error('[bloqueio por ausencia]', e.message);
+      }
+    }
   });
 });
 
@@ -325,10 +387,42 @@ router.patch('/reservas/negado/:id', async (req, res) => {
 
 router.patch('/reservas/editar/:id', async (req, res) => {
   try {
+    const { dia, horario } = req.body || {};
+    const [[atual]] = await dbPromise.query('SELECT * FROM reservas WHERE id = ? LIMIT 1', [req.params.id]);
+
+    if (atual && atual.status !== 'liberado' && (String(atual.dia).split('T')[0] !== String(dia).split('T')[0] || atual.horario !== horario)) {
+      await new Promise((resolve) => {
+        reservasModel.createReserva({
+          nome: atual.nome, sobrenome: atual.sobrenome, telefone: atual.telefone, email: atual.email,
+          dia: atual.dia, horario: atual.horario, horarioFinal: atual.horarioFinal,
+          qntd_pessoa: atual.qntd_pessoa, usuario_id: atual.usuario_id, profissional_id: atual.profissional_id,
+          status: 'liberado', is_urgente: atual.is_urgente, modalidade: atual.modalidade, valor: atual.valor,
+        }, (err) => { if (err) console.error('[editar/vaga do horario antigo]', err.message); resolve(); });
+      });
+    }
+
     await reservasModel.editarReserva(req.params.id, req.body || {});
     res.status(200).json({ message: 'Reserva editada e aguardando confirmação do professor!' });
   } catch {
     res.status(500).json({ error: 'Erro ao atualizar reserva' });
+  }
+});
+
+router.get('/notificacoes-paciente/:usuarioId', async (req, res) => {
+  try {
+    const notificacoes = await notificacoesPacienteModel.listarPorUsuario(req.params.usuarioId);
+    res.json(notificacoes);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao buscar notificações.' });
+  }
+});
+
+router.post('/notificacoes-paciente/:usuarioId/lidas', async (req, res) => {
+  try {
+    await notificacoesPacienteModel.marcarLidas(req.params.usuarioId);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao marcar notificações como lidas.' });
   }
 });
 
