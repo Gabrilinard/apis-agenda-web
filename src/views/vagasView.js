@@ -1,6 +1,7 @@
 const express = require('express');
 const { dbPromise } = require('../db');
 const vagasModel = require('../models/vagasModel');
+const notificacoesPacienteModel = require('../models/notificacoesPacienteModel');
 const { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga } = require('../email');
 const { authenticate } = require('../middlewares/auth');
 
@@ -70,7 +71,7 @@ const processarJanelaDesempate = async (chave) => {
 
   try {
     await dbPromise.query(
-      'UPDATE reservas SET dia = ?, horario = ?, horarioFinal = ?, status = "confirmado" WHERE id = ?',
+      'UPDATE reservas SET dia = ?, horario = ?, horarioFinal = ?, status = "confirmado", reagendado_em = NOW() WHERE id = ?',
       [notif.dia, notif.horario, notif.horarioFinal, reservaParaMover.id]
     );
 
@@ -98,6 +99,20 @@ const processarJanelaDesempate = async (chave) => {
         dia: notif.dia,
         horario: notif.horario,
       }).catch(e => console.error('[aceitar] email error:', e.message));
+
+      const [ano, mes, diaNum] = String(notif.dia).split('T')[0].split('-');
+      const dataFmt = `${diaNum}/${mes}/${ano}`;
+      vagasModel.criarNotificacaoProfissional({
+        profissional_id: notif.profissional_id,
+        reserva_id: reservaParaMover.id,
+        mensagem: `${candidato.nome} ${candidato.sobrenome} aceitou o horário liberado de ${dataFmt} às ${notif.horario}. Confira sua agenda.`,
+      }).catch(e => console.error('[aceitar] notificacao profissional error:', e.message));
+
+      notificacoesPacienteModel.criar({
+        usuario_id: notif.usuario_notificado_id,
+        reserva_id: reservaParaMover.id,
+        mensagem: `Sua consulta com ${prof.nome} ${prof.sobrenome} foi confirmada para ${dataFmt} às ${notif.horario}.`,
+      }).catch(e => console.error('[aceitar] notificacao paciente error:', e.message));
     }
 
     vencedora.tentativa.resolve({ ok: true });
@@ -153,10 +168,10 @@ router.post('/vagas/liberar/:reservaId', authenticate, async (req, res) => {
 });
 
 router.get('/vagas/candidatos', async (req, res) => {
-  const { profissional_id, dia, excluir_usuario_id } = req.query;
+  const { profissional_id, dia, excluir_usuario_id, reserva_liberada_id } = req.query;
   if (!profissional_id || !dia) return res.status(400).json({ error: 'profissional_id e dia são obrigatórios.' });
   try {
-    const candidatos = await vagasModel.getCandidatos(profissional_id, dia, excluir_usuario_id || 0);
+    const candidatos = await vagasModel.getCandidatos(profissional_id, dia, excluir_usuario_id || 0, reserva_liberada_id || 0);
     res.json(candidatos);
   } catch (e) {
     console.error('[candidatos] SQL error:', e.message || e);
@@ -243,6 +258,33 @@ router.post('/vagas/recusar/:notificacaoId', async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao recusar vaga.' });
+  }
+});
+
+router.get('/notificacoes-profissional/:profissionalId', async (req, res) => {
+  try {
+    const notificacoes = await vagasModel.listarNotificacoesProfissional(req.params.profissionalId);
+    res.json(notificacoes);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao buscar notificações.' });
+  }
+});
+
+router.post('/notificacoes-profissional/:profissionalId/lidas', async (req, res) => {
+  try {
+    await vagasModel.marcarNotificacoesProfissionalLidas(req.params.profissionalId);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao marcar notificações como lidas.' });
+  }
+});
+
+router.get('/vagas/notificados-pendentes/:profissionalId', async (req, res) => {
+  try {
+    const usuarioIds = await vagasModel.listarUsuariosNotificadosPendentes(req.params.profissionalId);
+    res.json(usuarioIds);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao buscar pacientes notificados.' });
   }
 });
 

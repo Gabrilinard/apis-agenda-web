@@ -98,6 +98,9 @@ const patchUpdate = (id, payload, cb) => {
     updates.push('horario = ?');
     values.push(horario);
   }
+  if (dia !== undefined || horario !== undefined) {
+    updates.push('reagendado_em = NOW()');
+  }
   if (horarioFinal !== undefined) {
     updates.push('horarioFinal = ?');
     values.push(horarioFinal);
@@ -178,7 +181,7 @@ const setNegado = (id, status, motivoNegacao, cb) => {
 
 const editarReserva = async (id, payload) => {
   const { dia, horario, horarioFinal, qntd_pessoa } = payload;
-  await dbPromise.query('UPDATE reservas SET dia = ?, horario = ?, horarioFinal = ?, qntd_pessoa = ?, status = ? WHERE id = ?', [
+  await dbPromise.query('UPDATE reservas SET dia = ?, horario = ?, horarioFinal = ?, qntd_pessoa = ?, status = ?, reagendado_em = NOW() WHERE id = ?', [
     dia,
     horario,
     horarioFinal,
@@ -211,6 +214,62 @@ const marcarLembreteUrgenciaEnviado = async (id) => {
   await dbPromise.query('UPDATE reservas SET lembrete_urgencia_enviado = 1 WHERE id = ?', [id]);
 };
 
+const listParaLembretePresenca = async () => {
+  const sql = `
+    SELECT r.id, r.dia, r.horario, r.usuario_id,
+           pac.nome AS pac_nome, pac.sobrenome AS pac_sobrenome, pac.email AS pac_email,
+           prof.nome AS prof_nome, prof.sobrenome AS prof_sobrenome, prof.genero AS prof_genero
+    FROM reservas r
+    LEFT JOIN usuario pac ON r.usuario_id = pac.id
+    LEFT JOIN usuario prof ON r.profissional_id = prof.id
+    WHERE r.status = 'confirmado'
+      AND r.presenca_confirmada = 0
+      AND r.confirmacao_presenca_enviada = 0
+      AND TIMESTAMP(r.dia, r.horario) > NOW()
+      AND TIMESTAMP(r.dia, r.horario) <= NOW() + INTERVAL 48 HOUR
+      AND pac.email IS NOT NULL
+  `;
+  const [rows] = await dbPromise.query(sql);
+  return rows;
+};
+
+const marcarConfirmacaoPresencaEnviada = async (id) => {
+  await dbPromise.query('UPDATE reservas SET confirmacao_presenca_enviada = 1 WHERE id = ?', [id]);
+};
+
+const confirmarPresenca = async (id, usuario_id) => {
+  const [result] = await dbPromise.query(
+    'UPDATE reservas SET presenca_confirmada = 1 WHERE id = ? AND usuario_id = ?',
+    [id, usuario_id]
+  );
+  return result.affectedRows > 0;
+};
+
+// Consultas confirmadas que entraram na janela final (15h antes) sem que o
+// paciente tenha confirmado presença — liberadas automaticamente para outro paciente.
+const listParaAutoLiberarPorFaltaConfirmacao = async () => {
+  const sql = `
+    SELECT r.id, r.dia, r.horario,
+           pac.nome AS pac_nome, pac.sobrenome AS pac_sobrenome, pac.email AS pac_email,
+           prof.id AS prof_id, prof.nome AS prof_nome, prof.sobrenome AS prof_sobrenome,
+           prof.email AS prof_email, prof.genero AS prof_genero
+    FROM reservas r
+    LEFT JOIN usuario pac ON r.usuario_id = pac.id
+    LEFT JOIN usuario prof ON r.profissional_id = prof.id
+    WHERE r.status = 'confirmado'
+      AND r.presenca_confirmada = 0
+      AND r.confirmacao_presenca_enviada = 1
+      AND TIMESTAMP(r.dia, r.horario) > NOW()
+      AND TIMESTAMP(r.dia, r.horario) <= NOW() + INTERVAL 15 HOUR
+  `;
+  const [rows] = await dbPromise.query(sql);
+  return rows;
+};
+
+const autoLiberarPorFaltaConfirmacao = async (id) => {
+  await dbPromise.query("UPDATE reservas SET status = 'liberado' WHERE id = ?", [id]);
+};
+
 module.exports = {
   createReserva,
   listUrgenciasSemRespostaHaUmaHora,
@@ -226,6 +285,11 @@ module.exports = {
   setNegado,
   editarReserva,
   negarConflitantes,
-  getConflitantes
+  getConflitantes,
+  listParaLembretePresenca,
+  marcarConfirmacaoPresencaEnviada,
+  confirmarPresenca,
+  listParaAutoLiberarPorFaltaConfirmacao,
+  autoLiberarPorFaltaConfirmacao,
 };
 

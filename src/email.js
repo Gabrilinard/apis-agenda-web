@@ -297,6 +297,47 @@ const emailUrgenciaLembretePaciente = async ({ pacienteEmail, pacienteNome, prof
   `);
 };
 
+const emailConfirmarPresenca = async ({ pacienteEmail, pacienteNome, profissionalNome, profissionalGenero, dia, horario }) => {
+  const linkConsultas = `${APP_URL}/minhas-consultas`;
+  const profissionalTratado = getNomeComTitulo(profissionalGenero, profissionalNome);
+  await send(pacienteEmail, 'Confirme sua presença — Agende Aqui', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <h2 style="color:#1B4D3E">Sua consulta está chegando!</h2>
+      <p>Olá <strong>${pacienteNome}</strong>,</p>
+      <p>Sua consulta com <strong>${profissionalTratado}</strong> é no dia <strong>${dia}</strong> às <strong>${horario}</strong> — menos de 48h.</p>
+      <p>Você confirma presença? Se não puder comparecer, libere o horário para que outro paciente possa aproveitá-lo.</p>
+      <a href="${linkConsultas}" style="display:inline-block;background:#1B4D3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:8px">
+        Confirmar presença
+      </a>
+      <p style="color:#888;font-size:12px;margin-top:16px">Se você não confirmar presença até 15 horas antes do horário marcado, ele será liberado automaticamente para outro paciente.</p>
+      <p style="color:#888;font-size:12px;margin-top:8px"><strong>Atenção:</strong> se você confirmar presença mas ainda assim faltar, e isso acontecer pela 2ª vez, sua conta fica temporariamente impedida de agendar novas consultas por 60 dias.</p>
+    </div>
+  `);
+};
+
+const emailHorarioLiberadoPorFaltaConfirmacao = async ({ pacienteEmail, pacienteNome, profissionalEmail, profissionalNome, profissionalGenero, dia, horario }) => {
+  const profissionalTratado = getNomeComTitulo(profissionalGenero, profissionalNome);
+  await send(pacienteEmail, 'Horário liberado automaticamente — Agende Aqui', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <h2 style="color:#1B4D3E">Seu horário foi liberado</h2>
+      <p>Olá <strong>${pacienteNome}</strong>,</p>
+      <p>Como não confirmamos sua presença a tempo, o horário do dia <strong>${dia}</strong> às <strong>${horario}</strong> com
+         <strong>${profissionalTratado}</strong> foi liberado automaticamente para outro paciente.</p>
+      <p style="color:#666;font-size:13px">Se ainda quiser essa consulta, marque um novo horário assim que possível.</p>
+    </div>
+  `);
+
+  await send(profissionalEmail, 'Horário liberado automaticamente — Agende Aqui', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <h2 style="color:#1B4D3E">Horário liberado</h2>
+      <p>Olá <strong>${profissionalTratado}</strong>,</p>
+      <p>O paciente <strong>${pacienteNome}</strong> não confirmou presença a tempo para a consulta do dia
+         <strong>${dia}</strong> às <strong>${horario}</strong>, então o horário foi liberado automaticamente.</p>
+      <p>Acesse o painel de Vagas para notificar outros pacientes disponíveis.</p>
+    </div>
+  `);
+};
+
 const emailRedefinicaoSenha = async ({ userEmail, userName, token }) => {
   const link = `${APP_URL}/ResetPassword?token=${token}`;
   await send(userEmail, 'Redefinição de senha — Agende Aqui', `
@@ -313,4 +354,4 @@ const emailRedefinicaoSenha = async ({ userEmail, userName, token }) => {
   `);
 };
 
-module.exports = { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga, emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada, emailUrgenciaLembreteProfissional, emailUrgenciaLembretePaciente, emailRedefinicaoSenha };
+module.exports = { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga, emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada, emailUrgenciaLembreteProfissional, emailUrgenciaLembretePaciente, emailConfirmarPresenca, emailHorarioLiberadoPorFaltaConfirmacao, emailRedefinicaoSenha };

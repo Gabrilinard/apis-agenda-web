@@ -1,0 +1,2 @@
+ALTER TABLE usuario ADD COLUMN bloqueado_ate DATETIME NULL;
+ALTER TABLE usuario ADD COLUMN motivo_bloqueio VARCHAR(255) NULL;
