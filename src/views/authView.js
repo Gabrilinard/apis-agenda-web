@@ -119,6 +119,8 @@ const getFormularioDemoBruno = (tipoProfissional, pacB, demo) => {
           horariosRefeicoes: 'Café 7h, almoço 12h30, jantar 20h.',
           problemasMetabolicos: 'Nenhum diagnosticado.',
           suplementos: 'Whey protein ocasionalmente.',
+          pesoAtual: '78.4',
+          altura: '172',
         },
       },
     },
