@@ -5,11 +5,297 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { dbPromise, pool } = require('../db');
 const usuariosModel = require('../models/usuariosModel');
+const reservasModel = require('../models/reservasModel');
+const formulariosModel = require('../models/formulariosModel');
 const { serializeLogin } = require('../serializers/authSerializer');
 const { emailRedefinicaoSenha } = require('../email');
 const { GENEROS_VALIDOS } = require('../utils/titulo');
 
 const router = express.Router();
+
+// Pacientes de demonstração usados para popular a agenda de um profissional recém-cadastrado,
+// para que ele já veja exemplos de vaga liberada, consulta pendente e urgência ao entrar pela primeira vez.
+const PACIENTES_DEMO = [
+  { nome: 'Ana', sobrenome: 'Demonstração', email: 'ana.demo@sistema.local', cpf: '00000000001', telefone: '(11) 90000-0001' },
+  { nome: 'Bruno', sobrenome: 'Demonstração', email: 'bruno.demo@sistema.local', cpf: '00000000002', telefone: '(11) 90000-0002' },
+  { nome: 'Carla', sobrenome: 'Demonstração', email: 'carla.demo@sistema.local', cpf: '00000000003', telefone: '(11) 90000-0003' },
+  { nome: 'Diana', sobrenome: 'Demonstração', email: 'diana.demo@sistema.local', cpf: '00000000004', telefone: '(11) 90000-0004' },
+];
+
+const formatarDataISO = (date) => date.toISOString().split('T')[0];
+
+const obterOuCriarPacienteDemo = async (demo) => {
+  const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE email = ? LIMIT 1', [demo.email]);
+  if (rows.length) return rows[0].id;
+  const senhaAleatoria = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+  const [result] = await dbPromise.query(
+    'INSERT INTO usuario (nome, sobrenome, telefone, email, senha, cpf, tipoUsuario) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [demo.nome, demo.sobrenome, demo.telefone, demo.email, senhaAleatoria, demo.cpf, 'paciente']
+  );
+  return result.insertId;
+};
+
+const criarReservaDemo = (payload) =>
+  new Promise((resolve, reject) => {
+    reservasModel.createReserva(payload, (err, result) => (err ? reject(err) : resolve(result)));
+  });
+
+// Um formulário de anamnese de exemplo por profissão — igual ao que cada tela de
+// Formulario/formularios/*.jsx monta e envia, para o profissional já ver o formulário
+// do Bruno preenchido de um jeito condizente com a especialidade dele.
+const getFormularioDemoBruno = (tipoProfissional, pacB, demo) => {
+  const paciente = { id: pacB, nome: demo.nome, sobrenome: demo.sobrenome, telefone: demo.telefone };
+  const geralPadrao = {
+    motivoPrincipal: 'Dor lombar recorrente há cerca de um mês.',
+    sintomas: 'Dor ao ficar muito tempo sentado e ao levantar peso.',
+    inicioSintomas: '1 mês',
+    intensidade: 'moderada',
+    historicoSaude: { doencaDiagnosticada: 'nao', doencaQual: '', cirurgias: '', internacao: 'nao', historicoFamiliar: '' },
+    medicamentosAlergias: { usaMedicamento: 'nao', medicamentosDetalhe: '', suplementos: '', alergiaMedicamento: 'nao', alergiaMedicamentoDetalhe: '' },
+    habitosVida: { alimentacao: 'boa', atividadeFisicaFrequencia: '2x por semana', alcool: 'nao', fuma: 'nao', sono: 'regular' },
+    saudeEmocional: { estresse: 'medio', ansiedadeDepressao: 'nao', acompanhamentoPsicologico: 'nao' },
+    outrosSintomas: { febre: false, tontura: false, faltaDeAr: false, nausea: false, dorPersistente: true },
+    observacoes: 'Trabalha em escritório, passa a maior parte do dia sentado.',
+  };
+
+  const porProfissao = {
+    fisioterapeuta: {
+      tipoFormulario: 'saude_geral', tipoAtendimento: 'fisioterapia',
+      conteudo: {
+        tipoProfissional: 'fisioterapeuta', tipoAtendimento: 'fisioterapia', paciente,
+        geral: geralPadrao,
+        especifico: {
+          queixaPrincipal: 'Dor na região lombar irradiando levemente para a perna direita.',
+          localDorOuLimitacao: 'Lombar',
+          senteDor: 'sim',
+          nivelDor: '6',
+          pioraComMovimento: 'Sim, ao curvar o tronco para frente.',
+          dificuldadeAtividadesDia: 'Dificuldade para calçar sapatos e permanecer sentado por muito tempo.',
+          lesoesTraumas: 'Nenhuma relatada.',
+          fezFisioAntes: 'sim',
+          diagnostico: '',
+        },
+      },
+    },
+    medico: {
+      tipoFormulario: 'saude_geral', tipoAtendimento: 'medico',
+      conteudo: {
+        tipoProfissional: 'medico', tipoAtendimento: 'medico', paciente,
+        geral: geralPadrao,
+        especifico: {
+          jaPassouAntes: 'sim, há uns 6 meses',
+          acompanhamentoOutroMedico: 'nao',
+          examesRecentes: 'Exame de sangue de rotina há 2 meses, sem alterações.',
+          doencasCronicas: 'Nenhuma.',
+          vacinacaoEmDia: 'sim',
+        },
+      },
+    },
+    fonoaudiologo: {
+      tipoFormulario: 'saude_geral', tipoAtendimento: 'fonoaudiologia',
+      conteudo: {
+        tipoProfissional: 'fonoaudiologo', tipoAtendimento: 'fonoaudiologia', paciente,
+        geral: geralPadrao,
+        especifico: {
+          comunicacao: { dificuldadeFala: 'nao', trocaOmissao: 'nao', dificuldadeCompreensao: 'nao' },
+          audicao: { suspeitaPerdaAuditiva: 'nao', exameAuditivo: 'nao' },
+          funcoesOrais: { mastigarEngolir: 'Sem dificuldades relatadas.', respiraPelaBoca: 'nao' },
+          crianca: { ehCrianca: 'nao', idadeComecouFalar: '', linguagemAdequada: '' },
+        },
+      },
+    },
+    nutricionista: {
+      tipoFormulario: 'nutricionista', tipoAtendimento: null,
+      conteudo: {
+        tipoProfissional: 'nutricionista', paciente,
+        nutricao: {
+          objetivo: 'Emagrecimento e reeducação alimentar.',
+          refeicoesPorDia: '4',
+          aguaDiaria: '1.5L',
+          restricoes: 'Intolerância a lactose.',
+          preferenciasAversoes: 'Não gosta de peixe.',
+          atividadeFisica: 'Musculação 2x por semana.',
+          rotinaTrabalho: 'Trabalho de escritório, sentado a maior parte do dia.',
+          horariosRefeicoes: 'Café 7h, almoço 12h30, jantar 20h.',
+          problemasMetabolicos: 'Nenhum diagnosticado.',
+          suplementos: 'Whey protein ocasionalmente.',
+        },
+      },
+    },
+    dentista: {
+      tipoFormulario: 'dentista', tipoAtendimento: null,
+      conteudo: {
+        tipoProfissional: 'dentista', paciente,
+        odontologia: {
+          motivoConsulta: 'Sensibilidade nos dentes ao consumir bebidas frias.',
+          dor: 'nao',
+          sangramento: 'nao',
+          sensibilidade: 'sim',
+          escovacaoFrequencia: '2x ao dia',
+          fioDental: 'as vezes',
+          ultimaConsulta: 'Há cerca de 1 ano.',
+          tratamentoCanal: 'nao',
+          aparelhoOrto: 'nao',
+          bruxismo: 'sim, à noite',
+          alergiaAnestesia: 'nao',
+          alergiaAnestesiaDetalhe: '',
+          problemasCardiacos: 'nao',
+          anticoagulantes: 'nao',
+          anticoagulantesDetalhe: '',
+        },
+      },
+    },
+    psicologo: {
+      tipoFormulario: 'psicologia', tipoAtendimento: 'psicologia',
+      conteudo: {
+        tipoProfissional: 'psicologo', tipoAtendimento: 'psicologia', paciente,
+        motivoBusca: { motivoPrincipal: 'Ansiedade relacionada ao trabalho.', tempoSintomas: '2 meses', intensidade: 'moderada' },
+        historicoPsicologico: { diagnosticoPrevio: 'nao', diagnosticoQual: '', jaFezTerapia: 'sim', tempoTerapiaAnterior: '1 ano, há 3 anos', motivoEncerramento: 'Mudança de cidade.' },
+        medicamentos: { usaMedicamentoPsiq: 'nao', medicamentoPsiqDetalhe: '', acompanhamentoPsiquiatra: 'nao' },
+        saudeEmocional: { nivelAnsiedade: 'medio', nivelDepressao: 'baixo', qualidadeSono: 'regular', nivelEstresse: 'alto', autoestima: 'media', pensamentosNegativoRecorrente: 'nao' },
+        contextoVida: { situacaoTrabalho: 'Empregado, carga horária alta.', relacionamentoFamiliar: 'Bom.', relacionamentoSocial: 'Bom, mas pouco tempo livre.', relacaoAmorosa: 'Estável.' },
+        trauma: { eventoTraumatico: 'nao', eventoTraumaticoDetalhe: '' },
+        objetivos: { objetivos: 'Aprender a lidar melhor com a ansiedade no trabalho.', expectativasTerapia: 'Ter mais equilíbrio entre vida pessoal e profissional.' },
+        observacoes: 'Prefere sessões no fim do dia.',
+      },
+    },
+  };
+
+  return porProfissao[tipoProfissional] || porProfissao.fisioterapeuta;
+};
+
+// Popula a agenda de um profissional recém-cadastrado com 3 exemplos: uma vaga liberada (com o
+// mesmo paciente já solicitando outro horário), uma consulta comum e uma urgência pendente de confirmação.
+const seedConsultasDemo = async (profissionalId) => {
+  try {
+    const [pacA, pacB, pacC, pacD] = await Promise.all(PACIENTES_DEMO.map(obterOuCriarPacienteDemo));
+
+    const [[profissional]] = await dbPromise.query('SELECT tipoProfissional FROM usuario WHERE id = ? LIMIT 1', [profissionalId]);
+    const formularioBruno = getFormularioDemoBruno(profissional?.tipoProfissional, pacB, PACIENTES_DEMO[1]);
+
+    const emDoisDias = new Date();
+    emDoisDias.setDate(emDoisDias.getDate() + 2);
+    const emTresDias = new Date();
+    emTresDias.setDate(emTresDias.getDate() + 3);
+
+    // Paciente A: pediu um novo horário para a consulta dela e o profissional já
+    // confirmou a mudança — fica "Reagendada".
+    const reservaAna = await criarReservaDemo({
+      nome: PACIENTES_DEMO[0].nome, sobrenome: PACIENTES_DEMO[0].sobrenome,
+      telefone: PACIENTES_DEMO[0].telefone, email: PACIENTES_DEMO[0].email,
+      dia: formatarDataISO(emTresDias), horario: '14:00', horarioFinal: '15:00',
+      qntd_pessoa: 1, usuario_id: pacA, profissional_id: profissionalId,
+      status: 'confirmado', is_urgente: false,
+    });
+    await dbPromise.query('UPDATE reservas SET reagendado_em = NOW() WHERE id = ?', [reservaAna.insertId]);
+    await dbPromise.query(
+      'INSERT INTO notificacoes_profissional (profissional_id, reserva_id, mensagem) VALUES (?, ?, ?)',
+      [
+        profissionalId,
+        reservaAna.insertId,
+        `Consulta reagendada de ${PACIENTES_DEMO[0].nome} ${PACIENTES_DEMO[0].sobrenome} confirmada para ${formatarDataISO(emTresDias).split('-').reverse().join('/')} às 14:00. Confira sua agenda.`,
+      ]
+    );
+
+    // Paciente B: consulta comum, pendente de confirmação, daqui a 2 dias — com o
+    // formulário de anamnese já preenchido (de acordo com a profissão do profissional),
+    // como se o paciente tivesse enviado.
+    const reservaBruno = await criarReservaDemo({
+      nome: PACIENTES_DEMO[1].nome, sobrenome: PACIENTES_DEMO[1].sobrenome,
+      telefone: PACIENTES_DEMO[1].telefone, email: PACIENTES_DEMO[1].email,
+      dia: formatarDataISO(emDoisDias), horario: '11:00', horarioFinal: '12:00',
+      qntd_pessoa: 1, usuario_id: pacB, profissional_id: profissionalId,
+      status: 'pendente', is_urgente: false,
+    });
+    await new Promise((resolve, reject) => {
+      formulariosModel.upsertByReservaIds([[
+        reservaBruno.insertId,
+        formularioBruno.tipoFormulario,
+        formularioBruno.tipoAtendimento,
+        pacB,
+        profissionalId,
+        JSON.stringify({ ...formularioBruno.conteudo, createdAt: new Date().toISOString() }),
+      ]], (err) => (err ? reject(err) : resolve()));
+    });
+
+    // Paciente C: urgência ainda pendente de confirmação, daqui a 2 dias.
+    await criarReservaDemo({
+      nome: PACIENTES_DEMO[2].nome, sobrenome: PACIENTES_DEMO[2].sobrenome,
+      telefone: PACIENTES_DEMO[2].telefone, email: PACIENTES_DEMO[2].email,
+      dia: formatarDataISO(emDoisDias), horario: '16:00', horarioFinal: '17:00',
+      qntd_pessoa: 1, usuario_id: pacC, profissional_id: profissionalId,
+      status: 'pendente', is_urgente: true,
+      descricao_urgencia: 'Dor aguda após um esforço, preciso de avaliação o quanto antes, mas não quero ir a uma emergência hospitalar.',
+      modalidade_urgencia: 'paciente_escolhe',
+    });
+
+    const hoje = new Date();
+    const diaHojeISO = formatarDataISO(hoje);
+    await criarReservaDemo({
+      nome: PACIENTES_DEMO[3].nome, sobrenome: PACIENTES_DEMO[3].sobrenome,
+      telefone: PACIENTES_DEMO[3].telefone, email: PACIENTES_DEMO[3].email,
+      dia: diaHojeISO, horario: '08:00', horarioFinal: '09:00',
+      qntd_pessoa: 1, usuario_id: pacD, profissional_id: profissionalId,
+      status: 'liberado', is_urgente: false,
+    });
+    const reservaDiana = await criarReservaDemo({
+      nome: PACIENTES_DEMO[3].nome, sobrenome: PACIENTES_DEMO[3].sobrenome,
+      telefone: PACIENTES_DEMO[3].telefone, email: PACIENTES_DEMO[3].email,
+      dia: diaHojeISO, horario: '10:00', horarioFinal: '11:00',
+      qntd_pessoa: 1, usuario_id: pacD, profissional_id: profissionalId,
+      status: 'pendente', is_urgente: false,
+    });
+    await dbPromise.query('UPDATE reservas SET reagendado_em = NOW() WHERE id = ?', [reservaDiana.insertId]);
+  } catch (err) {
+    console.error('[seedConsultasDemo]', err);
+  }
+};
+
+// Profissional de demonstração usado para já popular "Minhas Consultas" de todo
+// paciente recém-cadastrado, com uma consulta confirmada marcada para o dia seguinte.
+const PROFISSIONAL_DEMO = {
+  nome: 'Fábio', sobrenome: 'Demonstração', email: 'fabio.demo@sistema.local', cpf: '00000000005',
+  telefone: '(11) 90000-0005', tipoProfissional: 'medico', especialidadeMedica: 'Clínico Geral',
+  genero: 'masculino', valorConsulta: '150',
+};
+
+const obterOuCriarProfissionalDemo = async () => {
+  const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE email = ? LIMIT 1', [PROFISSIONAL_DEMO.email]);
+  if (rows.length) return rows[0].id;
+  const senhaAleatoria = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+  const [result] = await dbPromise.query(
+    `INSERT INTO usuario
+      (nome, sobrenome, telefone, email, senha, cpf, tipoUsuario, tipoProfissional, especialidadeMedica, genero, valorConsulta, modalidade, aceitandoConsultas)
+     VALUES (?, ?, ?, ?, ?, ?, 'profissional', ?, ?, ?, ?, 'presencial', 1)`,
+    [
+      PROFISSIONAL_DEMO.nome, PROFISSIONAL_DEMO.sobrenome, PROFISSIONAL_DEMO.telefone, PROFISSIONAL_DEMO.email,
+      senhaAleatoria, PROFISSIONAL_DEMO.cpf, PROFISSIONAL_DEMO.tipoProfissional, PROFISSIONAL_DEMO.especialidadeMedica,
+      PROFISSIONAL_DEMO.genero, PROFISSIONAL_DEMO.valorConsulta,
+    ]
+  );
+  return result.insertId;
+};
+
+// Popula "Minhas Consultas" de um paciente recém-cadastrado com uma consulta já
+// confirmada com o Fábio Demonstração, marcada para o dia seguinte ao cadastro.
+const seedConsultaDemoParaPaciente = async (usuarioId, dadosPaciente) => {
+  try {
+    const profissionalDemoId = await obterOuCriarProfissionalDemo();
+    const amanha = new Date();
+    amanha.setDate(amanha.getDate() + 1);
+
+    await criarReservaDemo({
+      nome: dadosPaciente.nome, sobrenome: dadosPaciente.sobrenome,
+      telefone: dadosPaciente.telefone, email: dadosPaciente.email,
+      dia: formatarDataISO(amanha), horario: '10:00', horarioFinal: '11:00',
+      qntd_pessoa: 1, usuario_id: usuarioId, profissional_id: profissionalDemoId,
+      status: 'confirmado', is_urgente: false,
+      modalidade: 'presencial', valor: PROFISSIONAL_DEMO.valorConsulta,
+    });
+  } catch (err) {
+    console.error('[seedConsultaDemoParaPaciente]', err);
+  }
+};
 
 router.post('/register', async (req, res) => {
   const {
@@ -186,6 +472,7 @@ router.post('/register', async (req, res) => {
       pool.query(`UPDATE usuario SET ${fields.join(', ')} WHERE id = ?`, values, (err) => {
         if (err) return res.status(400).json({ error: `Erro ao atualizar conta: ${err.sqlMessage}` });
         res.json({ message: 'Conta atualizada para profissional com sucesso!', id: upgradeUserId });
+        seedConsultasDemo(upgradeUserId);
       });
       return;
     }
@@ -305,6 +592,7 @@ router.post('/register', async (req, res) => {
               return res.status(400).json({ error: `Erro ao registrar: ${err2.sqlMessage}` });
             }
             res.json({ message: 'Usuário registrado com sucesso!', id: results2.insertId });
+            seedConsultasDemo(results2.insertId);
           });
         } else {
           return res.status(400).json({ error: `Erro ao registrar: ${err.sqlMessage}` });
@@ -312,6 +600,8 @@ router.post('/register', async (req, res) => {
       } else {
         const userId = results.insertId;
         res.json({ message: 'Usuário registrado com sucesso!', id: userId });
+        if (tipoUsuario === 'profissional') seedConsultasDemo(userId);
+        else seedConsultaDemoParaPaciente(userId, { nome, sobrenome, telefone, email });
       }
     });
   } catch (error) {
