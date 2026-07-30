@@ -201,8 +201,8 @@ const listUrgenciasSemRespostaHaUmaHora = async () => {
     LEFT JOIN usuario prof ON r.profissional_id = prof.id
     WHERE r.is_urgente = 1
       AND r.status = 'pendente'
-      AND r.lembrete_urgencia_enviado = 0
       AND r.created_at <= NOW() - INTERVAL 1 HOUR
+      AND (r.lembrete_urgencia_enviado_em IS NULL OR r.lembrete_urgencia_enviado_em <= NOW() - INTERVAL 1 HOUR)
       AND prof.email IS NOT NULL
       AND pac.email IS NOT NULL
   `;
@@ -211,7 +211,7 @@ const listUrgenciasSemRespostaHaUmaHora = async () => {
 };
 
 const marcarLembreteUrgenciaEnviado = async (id) => {
-  await dbPromise.query('UPDATE reservas SET lembrete_urgencia_enviado = 1 WHERE id = ?', [id]);
+  await dbPromise.query('UPDATE reservas SET lembrete_urgencia_enviado_em = NOW() WHERE id = ?', [id]);
 };
 
 const listParaLembretePresenca = async () => {

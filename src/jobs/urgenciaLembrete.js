@@ -39,6 +39,7 @@ const checkLembretesUrgencia = async () => {
         pacienteNome,
         profissionalNome,
         profissionalGenero: r.prof_genero,
+        horasDecorridas,
       }).catch(e => console.error('[lembrete urgencia] erro e-mail paciente:', e.message)),
     ]);
 

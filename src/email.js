@@ -198,10 +198,10 @@ const emailConsultaConfirmada = async ({ pacienteEmail, pacienteNome, profission
 
 const emailUrgenciaAceita = async ({ pacienteEmail, pacienteNome, profissionalEmail, profissionalNome, profissionalGenero, dia, horario }) => {
   const profissionalTratado = getNomeComTitulo(profissionalGenero, profissionalNome);
-  await send(pacienteEmail, 'Consulta emergente confirmada! — Agende Aqui', `
+  await send(pacienteEmail, 'Consulta urgente confirmada! — Agende Aqui', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
       <div style="background:#FFF7F0;border-left:4px solid #E8611A;padding:12px 16px;border-radius:6px;margin-bottom:20px">
-        <span style="color:#C2410C;font-weight:700;font-size:13px">⚡ CONSULTA EMERGENTE</span>
+        <span style="color:#C2410C;font-weight:700;font-size:13px">⚡ CONSULTA URGENTE</span>
       </div>
       <h2 style="color:#1B4D3E">Sua consulta foi confirmada!</h2>
       <p>Olá <strong>${pacienteNome}</strong>,</p>
@@ -219,17 +219,17 @@ const emailUrgenciaAceita = async ({ pacienteEmail, pacienteNome, profissionalEm
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
       <h2 style="color:#1B4D3E">Urgência confirmada</h2>
       <p>Olá <strong>${profissionalTratado}</strong>,</p>
-      <p>Você confirmou a consulta emergente de <strong>${pacienteNome}</strong> para o dia <strong>${dia}</strong> às <strong>${horario}</strong>.</p>
+      <p>Você confirmou a consulta urgente de <strong>${pacienteNome}</strong> para o dia <strong>${dia}</strong> às <strong>${horario}</strong>.</p>
     </div>
   `);
 };
 
 const emailUrgenciaRemarcada = async ({ pacienteEmail, pacienteNome, profissionalEmail, profissionalNome, profissionalGenero, novoDia, novoHorario }) => {
   const profissionalTratado = getNomeComTitulo(profissionalGenero, profissionalNome);
-  await send(pacienteEmail, 'Consulta emergente remarcada — Agende Aqui', `
+  await send(pacienteEmail, 'Consulta urgente remarcada — Agende Aqui', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
       <div style="background:#FFF7F0;border-left:4px solid #E8611A;padding:12px 16px;border-radius:6px;margin-bottom:20px">
-        <span style="color:#C2410C;font-weight:700;font-size:13px">⚡ CONSULTA EMERGENTE</span>
+        <span style="color:#C2410C;font-weight:700;font-size:13px">⚡ CONSULTA URGENTE</span>
       </div>
       <h2 style="color:#1B4D3E">Sua consulta foi remarcada</h2>
       <p>Olá <strong>${pacienteNome}</strong>,</p>
@@ -246,7 +246,7 @@ const emailUrgenciaRemarcada = async ({ pacienteEmail, pacienteNome, profissiona
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
       <h2 style="color:#1B4D3E">Urgência remarcada</h2>
       <p>Olá <strong>${profissionalTratado}</strong>,</p>
-      <p>Você remarcou a consulta emergente de <strong>${pacienteNome}</strong> para o dia <strong>${novoDia}</strong> às <strong>${novoHorario}</strong>.</p>
+      <p>Você remarcou a consulta urgente de <strong>${pacienteNome}</strong> para o dia <strong>${novoDia}</strong> às <strong>${novoHorario}</strong>.</p>
     </div>
   `);
 };
@@ -273,18 +273,18 @@ const emailUrgenciaLembreteProfissional = async ({ profissionalEmail, profission
   `);
 };
 
-const emailUrgenciaLembretePaciente = async ({ pacienteEmail, pacienteNome, profissionalNome, profissionalGenero }) => {
+const emailUrgenciaLembretePaciente = async ({ pacienteEmail, pacienteNome, profissionalNome, profissionalGenero, horasDecorridas }) => {
   const linkConsultas = `${APP_URL}/minhas-consultas`;
   const linkProfissionais = `${APP_URL}/profissionais`;
   const profissionalTratado = getNomeComTitulo(profissionalGenero, profissionalNome);
   await send(pacienteEmail, 'Ainda sem resposta à sua urgência — Agende Aqui', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
       <div style="background:#FFF7F0;border-left:4px solid #E8611A;padding:12px 16px;border-radius:6px;margin-bottom:20px">
-        <span style="color:#C2410C;font-weight:700;font-size:13px">⚡ CONSULTA EMERGENTE</span>
+        <span style="color:#C2410C;font-weight:700;font-size:13px">⚡ CONSULTA URGENTE</span>
       </div>
       <h2 style="color:#1B4D3E">Sua solicitação ainda não foi respondida</h2>
       <p>Olá <strong>${pacienteNome}</strong>,</p>
-      <p>Já se passou mais de <strong>1 hora</strong> e o profissional <strong>${profissionalTratado}</strong> ainda não respondeu à sua solicitação de urgência.</p>
+      <p>Já se passou <strong>${horasDecorridas || 'mais de 1 hora'}</strong> e o profissional <strong>${profissionalTratado}</strong> ainda não respondeu à sua solicitação de urgência.</p>
       <p>Se preferir, você pode continuar aguardando ou escolher outro profissional disponível agora:</p>
       <a href="${linkProfissionais}" style="display:inline-block;background:#E8611A;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:8px">
         Ver outros profissionais
