@@ -82,6 +82,12 @@ router.post('/reservas', upload.single('arquivo_urgencia'), async (req, res) => 
                 dia: dia || '',
                 horario: horario || '',
               }).catch(e => console.error('[nova urgencia email]', e.message));
+
+              vagasModel.criarNotificacaoProfissional({
+                profissional_id: profissionalIdFinal,
+                reserva_id: result.insertId,
+                mensagem: `⚡ Nova urgência de ${nome} ${sobrenome}. Acesse o painel de urgências para responder.`,
+              }).catch(e => console.error('[nova urgencia notificacao]', e.message));
             } else {
               emailNovaConsulta({
                 profissionalEmail: prof.email,

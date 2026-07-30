@@ -1,4 +1,6 @@
 const reservasModel = require('../models/reservasModel');
+const vagasModel = require('../models/vagasModel');
+const notificacoesPacienteModel = require('../models/notificacoesPacienteModel');
 const { emailUrgenciaLembreteProfissional, emailUrgenciaLembretePaciente } = require('../email');
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -41,6 +43,16 @@ const checkLembretesUrgencia = async () => {
         profissionalGenero: r.prof_genero,
         horasDecorridas,
       }).catch(e => console.error('[lembrete urgencia] erro e-mail paciente:', e.message)),
+      vagasModel.criarNotificacaoProfissional({
+        profissional_id: r.profissional_id,
+        reserva_id: r.id,
+        mensagem: `⚡ Urgência de ${pacienteNome} ainda sem resposta há ${horasDecorridas}.`,
+      }).catch(e => console.error('[lembrete urgencia] erro notificacao profissional:', e.message)),
+      notificacoesPacienteModel.criar({
+        usuario_id: r.usuario_id,
+        reserva_id: r.id,
+        mensagem: `Sua solicitação de urgência com ${profissionalNome} ainda não foi respondida (${horasDecorridas}). Você pode escolher outro profissional em Profissionais.`,
+      }).catch(e => console.error('[lembrete urgencia] erro notificacao paciente:', e.message)),
     ]);
 
     try {
