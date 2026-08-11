@@ -6,9 +6,15 @@ const parseCorsOrigins = (value) => {
     .filter(Boolean);
 };
 
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET não configurado. Defina uma variável de ambiente JWT_SECRET com um valor longo e aleatório antes de iniciar o servidor.'
+  );
+}
+
 const config = {
   port: Number(process.env.PORT) || 3000,
-  jwtSecret: process.env.JWT_SECRET || 'secreto',
+  jwtSecret: process.env.JWT_SECRET,
   cors: {
     origins:
       parseCorsOrigins(process.env.CORS_ORIGINS) || [

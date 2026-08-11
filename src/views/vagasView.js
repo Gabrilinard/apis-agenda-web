@@ -7,6 +7,8 @@ const { authenticate } = require('../middlewares/auth');
 
 const router = express.Router();
 
+router.use(authenticate);
+
 const JANELA_DESEMPATE_MS = 1200;
 const janelasDesempate = new Map(); // chave -> { timer, attempts: [{ notificacaoId, token, resolve }] }
 
@@ -58,9 +60,6 @@ const processarJanelaDesempate = async (chave) => {
   }
 
   if (candidatas.length === 0) return;
-
-  // Prioridade: consulta emergencial primeiro; empatando (ou entre não-emergenciais),
-  // quem estava com a consulta mais próxima (data/horário) da vaga liberada.
   candidatas.sort((a, b) => {
     if (a.isUrgente !== b.isUrgente) return a.isUrgente ? -1 : 1;
     return a.distanciaMs - b.distanciaMs;
@@ -121,14 +120,12 @@ const processarJanelaDesempate = async (chave) => {
     vencedora.tentativa.resolve({ ok: false, motivo: 'Erro ao aceitar vaga.' });
   }
 
-  // As demais notificações pendentes dessa vaga já foram expiradas por expirarOutras
-  // acima (mesmo profissional_id + dia + horario) — só resta avisar quem perdeu.
   for (const perdedora of perdedoras) {
     perdedora.tentativa.resolve({ ok: false, motivo: 'Outro paciente confirmou essa vaga primeiro.' });
   }
 };
 
-router.post('/vagas/liberar/:reservaId', authenticate, async (req, res) => {
+router.post('/vagas/liberar/:reservaId', async (req, res) => {
   const { reservaId } = req.params;
   try {
     const [[reserva]] = await dbPromise.query(
@@ -170,6 +167,10 @@ router.post('/vagas/liberar/:reservaId', authenticate, async (req, res) => {
 router.get('/vagas/candidatos', async (req, res) => {
   const { profissional_id, dia, excluir_usuario_id, reserva_liberada_id } = req.query;
   if (!profissional_id || !dia) return res.status(400).json({ error: 'profissional_id e dia são obrigatórios.' });
+
+  if (Number(profissional_id) !== req.userId) {
+    return res.status(403).json({ error: 'Você não tem permissão para ver os candidatos desta agenda.' });
+  }
   try {
     const candidatos = await vagasModel.getCandidatos(profissional_id, dia, excluir_usuario_id || 0, reserva_liberada_id || 0);
     res.json(candidatos);
@@ -183,6 +184,10 @@ router.post('/vagas/notificar', async (req, res) => {
   const { profissional_id, reserva_liberada_id, dia, horario, horarioFinal, usuario_notificado_id, reserva_candidato_id } = req.body;
   if (!profissional_id || !dia || !horario || !usuario_notificado_id) {
     return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
+  }
+
+  if (Number(profissional_id) !== req.userId) {
+    return res.status(403).json({ error: 'Você não tem permissão para notificar candidatos por esta agenda.' });
   }
   try {
     const { id: notificacaoId, token } = await vagasModel.criarNotificacao({
@@ -213,6 +218,9 @@ router.post('/vagas/notificar', async (req, res) => {
 });
 
 router.get('/vagas/pendentes/:usuarioId', async (req, res) => {
+  if (Number(req.params.usuarioId) !== req.userId) {
+    return res.status(403).json({ error: 'Você não tem permissão para ver as notificações de outro usuário.' });
+  }
   try {
     const notificacoes = await vagasModel.getPendentesPorUsuario(req.params.usuarioId);
     res.json(notificacoes);
@@ -229,6 +237,9 @@ router.post('/vagas/aceitar/:notificacaoId', async (req, res) => {
   try {
     const notif = await vagasModel.getNotificacaoPorIdEToken(notificacaoId, token);
     if (!notif) return res.status(404).json({ error: 'Notificação não encontrada ou já processada.' });
+    if (notif.usuario_notificado_id !== req.userId) {
+      return res.status(403).json({ error: 'Esta notificação não pertence a você.' });
+    }
 
     const chave = notif.reserva_liberada_id ? `liberada-${notif.reserva_liberada_id}` : `notif-${notif.id}`;
 
@@ -254,7 +265,12 @@ router.post('/vagas/aceitar/:notificacaoId', async (req, res) => {
 
 router.post('/vagas/recusar/:notificacaoId', async (req, res) => {
   try {
-    await vagasModel.recusarNotificacao(req.params.notificacaoId);
+    const notif = await vagasModel.getNotificacaoPorId(req.params.notificacaoId);
+    if (!notif) return res.status(404).json({ error: 'Notificação não encontrada ou já processada.' });
+    if (notif.usuario_notificado_id !== req.userId) {
+      return res.status(403).json({ error: 'Esta notificação não pertence a você.' });
+    }
+    await vagasModel.recusarNotificacao(notif.id);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao recusar vaga.' });
@@ -262,6 +278,9 @@ router.post('/vagas/recusar/:notificacaoId', async (req, res) => {
 });
 
 router.get('/notificacoes-profissional/:profissionalId', async (req, res) => {
+  if (Number(req.params.profissionalId) !== req.userId) {
+    return res.status(403).json({ error: 'Você não tem permissão para ver as notificações de outro profissional.' });
+  }
   try {
     const notificacoes = await vagasModel.listarNotificacoesProfissional(req.params.profissionalId);
     res.json(notificacoes);
@@ -271,6 +290,9 @@ router.get('/notificacoes-profissional/:profissionalId', async (req, res) => {
 });
 
 router.post('/notificacoes-profissional/:profissionalId/lidas', async (req, res) => {
+  if (Number(req.params.profissionalId) !== req.userId) {
+    return res.status(403).json({ error: 'Você não tem permissão para alterar as notificações de outro profissional.' });
+  }
   try {
     await vagasModel.marcarNotificacoesProfissionalLidas(req.params.profissionalId);
     res.json({ success: true });
@@ -280,6 +302,9 @@ router.post('/notificacoes-profissional/:profissionalId/lidas', async (req, res)
 });
 
 router.get('/vagas/notificados-pendentes/:profissionalId', async (req, res) => {
+  if (Number(req.params.profissionalId) !== req.userId) {
+    return res.status(403).json({ error: 'Você não tem permissão para ver os pacientes notificados de outro profissional.' });
+  }
   try {
     const usuarioIds = await vagasModel.listarUsuariosNotificadosPendentes(req.params.profissionalId);
     res.json(usuarioIds);

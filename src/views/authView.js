@@ -10,11 +10,12 @@ const formulariosModel = require('../models/formulariosModel');
 const { serializeLogin } = require('../serializers/authSerializer');
 const { emailRedefinicaoSenha } = require('../email');
 const { GENEROS_VALIDOS } = require('../utils/titulo');
+const { authenticate } = require('../middlewares/auth');
+const { loginLimiter, registerLimiter, forgotPasswordLimiter } = require('../middlewares/rateLimit');
+const auditModel = require('../models/auditModel');
 
 const router = express.Router();
 
-// Pacientes de demonstração usados para popular a agenda de um profissional recém-cadastrado,
-// para que ele já veja exemplos de vaga liberada, consulta pendente e urgência ao entrar pela primeira vez.
 const PACIENTES_DEMO = [
   { nome: 'Ana', sobrenome: 'Demonstração', email: 'ana.demo@sistema.local', cpf: '00000000001', telefone: '(11) 90000-0001' },
   { nome: 'Bruno', sobrenome: 'Demonstração', email: 'bruno.demo@sistema.local', cpf: '00000000002', telefone: '(11) 90000-0002' },
@@ -40,9 +41,6 @@ const criarReservaDemo = (payload) =>
     reservasModel.createReserva(payload, (err, result) => (err ? reject(err) : resolve(result)));
   });
 
-// Um formulário de anamnese de exemplo por profissão — igual ao que cada tela de
-// Formulario/formularios/*.jsx monta e envia, para o profissional já ver o formulário
-// do Bruno preenchido de um jeito condizente com a especialidade dele.
 const getFormularioDemoBruno = (tipoProfissional, pacB, demo) => {
   const paciente = { id: pacB, nome: demo.nome, sobrenome: demo.sobrenome, telefone: demo.telefone };
   const geralPadrao = {
@@ -299,7 +297,7 @@ const seedConsultaDemoParaPaciente = async (usuarioId, dadosPaciente) => {
   }
 };
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const {
     nome,
     sobrenome,
@@ -601,6 +599,7 @@ router.post('/register', async (req, res) => {
         }
       } else {
         const userId = results.insertId;
+        auditModel.registrar({ usuarioId: userId, evento: 'cadastro', sucesso: true, ip: req.ip });
         res.json({ message: 'Usuário registrado com sucesso!', id: userId });
         if (tipoUsuario === 'profissional') seedConsultasDemo(userId);
         else seedConsultaDemoParaPaciente(userId, { nome, sobrenome, telefone, email });
@@ -611,28 +610,35 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', loginLimiter, (req, res) => {
   const { email, senha } = req.body;
   pool.query('SELECT * FROM usuario WHERE email = ?', [email], async (err, results) => {
-    if (err || !results || results.length === 0) return res.status(400).json({ error: 'Usuário não encontrado' });
+    if (err || !results || results.length === 0) {
+      auditModel.registrar({ evento: 'login', sucesso: false, ip: req.ip, detalhe: `e-mail não encontrado: ${email}` });
+      return res.status(400).json({ error: 'Usuário não encontrado' });
+    }
 
     const user = results[0];
     const senhaCorreta = await bcrypt.compare(senha, user.senha);
-    if (!senhaCorreta) return res.status(401).json({ error: 'Senha incorreta' });
+    if (!senhaCorreta) {
+      auditModel.registrar({ usuarioId: user.id, evento: 'login', sucesso: false, ip: req.ip, detalhe: 'senha incorreta' });
+      return res.status(401).json({ error: 'Senha incorreta' });
+    }
 
+    auditModel.registrar({ usuarioId: user.id, evento: 'login', sucesso: true, ip: req.ip });
     const token = jwt.sign({ id: user.id }, config.jwtSecret, { expiresIn: '1h' });
     res.json(serializeLogin(user, token));
   });
 });
 
-router.get('/user/:id', (req, res) => {
+router.get('/user/:id', authenticate, (req, res) => {
   usuariosModel.findBasicById(req.params.id, (err, userRow) => {
     if (err || !userRow) return res.status(404).json({ error: 'Usuário não encontrado' });
     res.json(userRow);
   });
 });
 
-router.post('/api/forgot-password', async (req, res) => {
+router.post('/api/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { email } = req.body;
   try {
     const user = await usuariosModel.findByEmail(email);
@@ -658,6 +664,7 @@ router.patch('/api/reset-password', async (req, res) => {
     const hashedPassword = await bcrypt.hash(senha, 10);
     await usuariosModel.updatePasswordAsync(tokenRow.user_id, hashedPassword);
     await usuariosModel.deleteResetToken(token);
+    auditModel.registrar({ usuarioId: tokenRow.user_id, evento: 'redefinicao_senha', sucesso: true, ip: req.ip });
     return res.json({ message: 'Senha redefinida com sucesso.' });
   } catch (err) {
     console.error('[reset-password]', err);

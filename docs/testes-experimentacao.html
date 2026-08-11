@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Gabriel Linard Leite" />
+  <meta name="dcterms.date" content="2026-01-01" />
+  <title>Experimentação — Testes Automatizados do Backend (Agende Aqui)</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="print-style.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Experimentação — Testes Automatizados do Backend
+(Agende Aqui)</h1>
+<p class="author">Gabriel Linard Leite</p>
+<p class="date">2026</p>
+</header>
+<h1 id="testes-automatizados-dos-módulos-centrais">Testes Automatizados
+dos Módulos Centrais</h1>
+<p>Esta seção documenta a suíte de testes automatizados construída para
+validar os três módulos centrais da plataforma Agende Aqui — Urgências
+Não Emergenciais, Formulários Pré-Consulta e Sistema de Reaproveitamento
+de Horários — e os mecanismos transversais de autenticação, controle de
+acesso e proteção de dados descritos na Seção IV do artigo. Cada teste é
+apresentado de forma declarativa: qual pergunta do projeto ele responde,
+e qual foi o resultado obtido ao executá-lo contra o código real do
+backend.</p>
+<h2 id="a.-objetivos-do-experimento">A. Objetivos do experimento</h2>
+<ol type="1">
+<li>Verificar se as regras de prazo do Sistema de Reaproveitamento de
+Horários (janela de 48h para cancelamento, janela de confirmação de
+presença entre 48h e 15h, bloqueio de 60 dias por ausência
+pós-confirmação) são aplicadas pelo servidor, e não apenas ocultadas na
+interface.</li>
+<li>Verificar se a lógica de desempate do Sistema de Reaproveitamento de
+Horários respeita a prioridade definida (urgência primeiro, depois
+proximidade da consulta) mesmo sob concorrência real.</li>
+<li>Verificar se as validações de cadastro (CPF, formato e unicidade do
+registro em conselho profissional) impedem perfis inválidos ou
+duplicados.</li>
+<li>Verificar se as rotinas assíncronas de lembrete e notificação
+continuam funcionando de forma consistente mesmo quando uma etapa
+individual (envio de e-mail) falha.</li>
+<li>Verificar se o controle de acesso por perfil impede que um usuário
+autenticado leia ou altere dados de outro usuário, e se as consultas ao
+banco estão protegidas contra injeção de SQL.</li>
+</ol>
+<h2 id="b.-instrumentos-e-materiais">B. Instrumentos e materiais</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Ferramenta</th>
+<th>Função no experimento</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Jest 30</td>
+<td>Executor de testes e biblioteca de asserções</td>
+</tr>
+<tr>
+<td>Supertest 7</td>
+<td>Envio de requisições HTTP reais contra a aplicação Express, sem
+abrir uma porta de rede</td>
+</tr>
+<tr>
+<td>Mock manual do driver <code>mysql2</code></td>
+<td>Substitui o banco de dados por um roteador de consultas controlado,
+simulando qualquer estado do banco sem precisar de uma instância
+real</td>
+</tr>
+<tr>
+<td>Mock do módulo de e-mail (Resend)</td>
+<td>Substitui o envio real de e-mail por funções espiãs, evitando I/O de
+rede e permitindo verificar quais e-mails seriam disparados</td>
+</tr>
+</tbody>
+</table>
+<p>Nenhum teste depende de uma instância real de MySQL ou de um provedor
+de e-mail — a suíte inteira roda de forma determinística e isolada.</p>
+<h2 id="c.-resultado-consolidado">C. Resultado consolidado</h2>
+<p>A suíte foi executada com <code>npm test</code> dentro de
+<code>backend/</code>.</p>
+<table>
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 23%" />
+<col style="width: 30%" />
+<col style="width: 23%" />
+</colgroup>
+<thead>
+<tr>
+<th>Arquivo</th>
+<th>Categoria</th>
+<th style="text-align: right;">Testes</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>auth.middleware.unit.test.js</code></td>
+<td>Unitário</td>
+<td style="text-align: right;">5</td>
+<td>✅ 5/5 aprovados</td>
+</tr>
+<tr>
+<td><code>usuariosModel.bloqueio.unit.test.js</code></td>
+<td>Unitário</td>
+<td style="text-align: right;">4</td>
+<td>✅ 4/4 aprovados</td>
+</tr>
+<tr>
+<td><code>reservas.regras.test.js</code></td>
+<td>Regra de negócio / Integração</td>
+<td style="text-align: right;">7</td>
+<td>✅ 7/7 aprovados</td>
+</tr>
+<tr>
+<td><code>register.regras.test.js</code></td>
+<td>Regra de negócio / Integração</td>
+<td style="text-align: right;">15</td>
+<td>✅ 15/15 aprovados</td>
+</tr>
+<tr>
+<td><code>vagas.concorrencia.test.js</code></td>
+<td>Concorrência</td>
+<td style="text-align: right;">3</td>
+<td>✅ 3/3 aprovados</td>
+</tr>
+<tr>
+<td><code>security.test.js</code></td>
+<td>Segurança</td>
+<td style="text-align: right;">13</td>
+<td>✅ 13/13 aprovados</td>
+</tr>
+<tr>
+<td><code>notificacoes.jobs.test.js</code></td>
+<td>Unitário</td>
+<td style="text-align: right;">8</td>
+<td>✅ 8/8 aprovados</td>
+</tr>
+<tr>
+<td><code>idor-ampliado.test.js</code></td>
+<td>Segurança</td>
+<td style="text-align: right;">19</td>
+<td>✅ 19/19 aprovados</td>
+</tr>
+<tr>
+<td><code>uploads.security.test.js</code></td>
+<td>Segurança</td>
+<td style="text-align: right;">7</td>
+<td>✅ 7/7 aprovados</td>
+</tr>
+<tr>
+<td><code>seguranca-ampliada2.test.js</code></td>
+<td>Segurança</td>
+<td style="text-align: right;">8</td>
+<td>✅ 8/8 aprovados</td>
+</tr>
+<tr>
+<td><code>auditoria.test.js</code></td>
+<td>Segurança</td>
+<td style="text-align: right;">5</td>
+<td>✅ 5/5 aprovados</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td></td>
+<td style="text-align: right;"><strong>94</strong></td>
+<td><strong>94/94 (100%)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>O arquivo <code>idor-ampliado.test.js</code> nasceu de uma segunda
+rodada de auditoria, mais ampla, motivada por uma pergunta direta sobre
+o quão seguro o sistema realmente estava. O arquivo
+<code>uploads.security.test.js</code> nasceu de uma terceira rodada,
+motivada por uma pergunta específica sobre vazamento de dados sensíveis
+(exames). O arquivo <code>seguranca-ampliada2.test.js</code> nasceu de
+uma quarta rodada, desta vez varrendo classes inteiras de
+vulnerabilidade (não só rotas específicas) — força bruta, segredo de
+sessão, exposição de dados por enumeração e o direito de exclusão de
+conta previsto na LGPD. O arquivo <code>auditoria.test.js</code> fecha o
+gap que havia ficado registrado como pendente na rodada anterior:
+nenhuma ação sensível (login, cadastro, redefinição de senha, exclusão
+de conta) ficava registrada em lugar nenhum — ver item F.</p>
+<p>Tempo total de execução: aproximadamente 14 segundos, sem
+dependências externas.</p>
+<h2 id="d.-procedimento">D. Procedimento</h2>
+<p>Os 74 testes foram organizados em cinco categorias metodológicas:</p>
+<ul>
+<li><strong>Unitário</strong>: exercita uma função isolada (middleware,
+regra de modelo, job de background), com toda dependência externa
+substituída por mock.</li>
+<li><strong>Integração</strong>: sobe a aplicação Express real e envia
+requisições HTTP via Supertest, exercitando roteamento e middlewares de
+ponta a ponta, com o banco mockado apenas na fronteira do driver.</li>
+<li><strong>Regra de negócio</strong>: verifica, via API HTTP, que uma
+regra documentada no artigo é de fato aplicada pelo servidor (não apenas
+pela interface).</li>
+<li><strong>Segurança</strong>: verifica autenticação, autorização e
+proteção contra injeção de SQL.</li>
+<li><strong>Concorrência</strong>: dispara requisições HTTP simultâneas
+de verdade (<code>Promise.all</code>), sem simular tempo, para observar
+o comportamento real sob disputa.</li>
+</ul>
+<h2 id="e.-o-que-cada-teste-responde-e-qual-foi-o-resultado">E. O que
+cada teste responde e qual foi o resultado</h2>
+<h3
+id="e.1-autenticação-por-token-unitário-auth.middleware.unit.test.js">E.1
+Autenticação por token (unitário) —
+<code>auth.middleware.unit.test.js</code></h3>
+<p>O artigo (Seção IV-A) declara que “rotas que expõem dados sensíveis
+(…) são protegidas por um <em>middleware</em> de autenticação que valida
+a assinatura e a expiração do token antes de processar a requisição,
+retornando HTTP 401 em caso de falha”. Estes 5 testes verificam essa
+afirmação na função <code>authenticate</code> isoladamente.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Requisição sem cabeçalho <code>Authorization</code></td>
+<td>O middleware bloqueia quem não envia token nenhum?</td>
+<td><strong>Sim</strong> — retorna 401 e a mensagem “Não
+autenticado.”</td>
+</tr>
+<tr>
+<td>Cabeçalho sem o prefixo <code>Bearer</code></td>
+<td>O middleware exige o formato correto do cabeçalho?</td>
+<td><strong>Sim</strong> — retorna 401</td>
+</tr>
+<tr>
+<td>Token assinado com segredo diferente do servidor</td>
+<td>Um token forjado por terceiros é aceito?</td>
+<td><strong>Não</strong> — retorna 401, a assinatura é validada de
+fato</td>
+</tr>
+<tr>
+<td>Token expirado</td>
+<td>Um token vencido continua valendo?</td>
+<td><strong>Não</strong> — retorna 401, mesmo com o <code>id</code>
+correto no payload</td>
+</tr>
+<tr>
+<td>Token válido</td>
+<td>Um token correto é aceito e o <code>id</code> do usuário é
+propagado?</td>
+<td><strong>Sim</strong> — <code>req.userId</code> é populado e a
+requisição segue (<code>next()</code> chamado)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 5/5 aprovados.</strong> A implementação
+do JWT confere com o que o artigo descreve.</p>
+<h3
+id="e.2-bloqueio-de-60-dias-por-ausência-pós-confirmação-unitário-usuariosmodel.bloqueio.unit.test.js">E.2
+Bloqueio de 60 dias por ausência pós-confirmação (unitário) —
+<code>usuariosModel.bloqueio.unit.test.js</code></h3>
+<p>O artigo (Seção IV-B) afirma: “o sistema registra o evento como
+ausência pós-confirmação e aplica um bloqueio temporário de 60 dias”.
+Estes 4 testes verificam a regra diretamente na camada de modelo.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bloqueado_ate</code> nulo</td>
+<td>Um usuário que nunca faltou é tratado como bloqueado?</td>
+<td><strong>Não</strong> — <code>getBloqueio</code> retorna
+<code>null</code></td>
+</tr>
+<tr>
+<td><code>bloqueado_ate</code> no passado</td>
+<td>Um bloqueio vencido continua impedindo o agendamento?</td>
+<td><strong>Não</strong> — retorna <code>null</code>, o paciente
+recupera o acesso automaticamente, como o artigo promete</td>
+</tr>
+<tr>
+<td><code>bloqueado_ate</code> no futuro</td>
+<td>Um bloqueio vigente é detectado e o motivo é preservado?</td>
+<td><strong>Sim</strong> — retorna o registro completo com o motivo da
+ausência</td>
+</tr>
+<tr>
+<td>Aplicação de um novo bloqueio</td>
+<td>O sistema usa exatamente 60 dias, e não outro valor?</td>
+<td><strong>Sim</strong> — <code>bloquearTemporariamente</code> usa
+<code>BLOQUEIO_DIAS = 60</code>, confirmando o valor citado no
+artigo</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 4/4 aprovados.</strong></p>
+<h3
+id="e.3-janela-de-48h-e-bloqueio-ao-agendar-regra-de-negócio-integração-reservas.regras.test.js">E.3
+Janela de 48h e bloqueio ao agendar (regra de negócio + integração) —
+<code>reservas.regras.test.js</code></h3>
+<p>O artigo (Seção IV-B) afirma: “o cancelamento está disponível apenas
+com antecedência mínima de 48 horas em relação ao horário da consulta.
+Essa restrição é aplicada tanto na interface (…) quanto no
+<em>back-end</em>, que recusa a requisição caso a condição não seja
+satisfeita, impedindo que a regra seja contornada”. Estes 7 testes
+atacam a API diretamente — sem passar pela interface — para verificar se
+essa promessa se sustenta.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cancelamento a 10h da consulta</td>
+<td>Um cliente que ignora a interface e chama a API direto consegue
+cancelar dentro das 48h?</td>
+<td><strong>Não</strong> — HTTP 403, mensagem cita a janela de 48h. A
+regra realmente está no servidor, não só na tela</td>
+</tr>
+<tr>
+<td>Cancelamento a 72h da consulta</td>
+<td>Fora da janela protegida, o cancelamento funciona normalmente?</td>
+<td><strong>Sim</strong> — HTTP 200</td>
+</tr>
+<tr>
+<td>Cancelamento a exatamente 48h</td>
+<td>No limite exato do prazo, o sistema erra para o lado mais seguro
+(bloqueia) ou mais permissivo (libera)?</td>
+<td><strong>Bloqueia</strong> — HTTP 403, comportamento protetivo no
+limite</td>
+</tr>
+<tr>
+<td>Profissional exclui a reserva de um paciente dentro das 48h</td>
+<td>A regra de 48h também impede o profissional de agir, ou é exclusiva
+do paciente?</td>
+<td><strong>É exclusiva do paciente</strong> — HTTP 200, o profissional
+pode remover a reserva mesmo dentro da janela</td>
+</tr>
+<tr>
+<td>Exclusão de reserva inexistente</td>
+<td>O servidor lida corretamente com um id que não existe?</td>
+<td><strong>Sim</strong> — HTTP 404</td>
+</tr>
+<tr>
+<td>Paciente bloqueado tenta criar reserva</td>
+<td>O bloqueio por ausência realmente impede novos agendamentos?</td>
+<td><strong>Sim</strong> — HTTP 403 com o motivo do bloqueio na
+mensagem</td>
+</tr>
+<tr>
+<td>Paciente com bloqueio expirado tenta criar reserva</td>
+<td>O paciente recupera o acesso automaticamente após os 60 dias?</td>
+<td><strong>Sim</strong> — HTTP 200, agendamento aceito normalmente</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 7/7 aprovados.</strong> A promessa do
+artigo de que a regra “não pode ser contornada” pela interface se
+confirma: o servidor recusa a requisição independentemente de o cliente
+ser o site oficial ou uma chamada direta à API.</p>
+<h3
+id="e.4-validação-de-cadastro-cpf-e-registro-em-conselho-regra-de-negócio-integração-register.regras.test.js">E.4
+Validação de cadastro — CPF e registro em conselho (regra de negócio +
+integração) — <code>register.regras.test.js</code></h3>
+<p>O artigo (Seção II-G) afirma que a plataforma “adota esse controle ao
+exigir, no cadastro, o número de registro no conselho correspondente à
+especialidade declarada (…), aceitando apenas um registro por
+profissional, o que impede perfis duplicados”. Estes 15 testes
+verificam, campo a campo, se essas garantias realmente existem no
+<code>POST /register</code>.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPF com dígito verificador inválido</td>
+<td>O sistema calcula o dígito verificador de verdade, ou só confere o
+tamanho?</td>
+<td><strong>Calcula de verdade</strong> — HTTP 400</td>
+</tr>
+<tr>
+<td>CPF com todos os dígitos iguais</td>
+<td>Um CPF “fácil” tipo 111.111.111-11 é aceito?</td>
+<td><strong>Não</strong> — HTTP 400, caso tratado explicitamente</td>
+</tr>
+<tr>
+<td>CPF com quantidade de dígitos errada</td>
+<td>O sistema valida o tamanho antes do checksum?</td>
+<td><strong>Sim</strong> — HTTP 400 com mensagem específica</td>
+</tr>
+<tr>
+<td>CPF com dígito verificador correto</td>
+<td>Um CPF genuinamente válido passa pela validação?</td>
+<td><strong>Sim</strong> — a validação de CPF não bloqueia o
+cadastro</td>
+</tr>
+<tr>
+<td>Gênero fora da lista aceita</td>
+<td>Valores arbitrários no campo gênero são aceitos?</td>
+<td><strong>Não</strong> — HTTP 400</td>
+</tr>
+<tr>
+<td>E-mail já cadastrado</td>
+<td>O sistema impede duas contas com o mesmo e-mail?</td>
+<td><strong>Sim</strong> — HTTP 409</td>
+</tr>
+<tr>
+<td>CPF já cadastrado, sem elegibilidade de upgrade</td>
+<td>Um CPF duplicado sempre é bloqueado, mesmo quando não se trata de um
+paciente virando profissional?</td>
+<td><strong>Sim</strong> — HTTP 409</td>
+</tr>
+<tr>
+<td>Profissional sem <code>tipoProfissional</code></td>
+<td>O sistema exige que o tipo de profissão seja informado?</td>
+<td><strong>Sim</strong> — HTTP 400</td>
+</tr>
+<tr>
+<td>Médico sem especialidade</td>
+<td>A obrigatoriedade da especialidade médica é aplicada no
+servidor?</td>
+<td><strong>Sim</strong> — HTTP 400</td>
+</tr>
+<tr>
+<td>Profissional “outros” sem profissão customizada</td>
+<td>O caso especial “outros” exige o campo livre?</td>
+<td><strong>Sim</strong> — HTTP 400</td>
+</tr>
+<tr>
+<td>Profissional sem número de conselho</td>
+<td>O número de registro no conselho é realmente obrigatório?</td>
+<td><strong>Sim</strong> — HTTP 400, confirmando o texto do artigo</td>
+</tr>
+<tr>
+<td>CRM fora do formato <code>CRM/UF NNNNNN</code></td>
+<td>O formato do número de conselho é validado por categoria, ou aceito
+livremente?</td>
+<td><strong>É validado</strong> — HTTP 400 com o formato esperado na
+mensagem</td>
+</tr>
+<tr>
+<td>CREFITO fora do formato <code>CREFITO-N/NNNNNN-F</code></td>
+<td>O mesmo vale para fisioterapeutas, com um padrão totalmente
+diferente do CRM?</td>
+<td><strong>Sim</strong> — HTTP 400, confirmando que cada categoria tem
+sua própria regra</td>
+</tr>
+<tr>
+<td>Número de conselho válido, mas já cadastrado</td>
+<td>“Um registro por profissional” é aplicado mesmo com o formato
+correto?</td>
+<td><strong>Sim</strong> — HTTP 409, perfil duplicado é impedido</td>
+</tr>
+<tr>
+<td>Profissional sem UF/Região</td>
+<td>A UF do conselho é obrigatória, como a Tabela 26 da ANS
+pressupõe?</td>
+<td><strong>Sim</strong> — HTTP 400</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 15/15 aprovados.</strong> Todas as
+garantias de unicidade e formato descritas na Seção II-G do artigo se
+confirmam na prática.</p>
+<h3
+id="e.5-desempate-concorrente-do-sistema-de-reaproveitamento-de-horários-concorrência-vagas.concorrencia.test.js">E.5
+Desempate concorrente do Sistema de Reaproveitamento de Horários
+(concorrência) — <code>vagas.concorrencia.test.js</code></h3>
+<p>O artigo (Seção IV-B) descreve o mecanismo de desempate: “o sistema
+aplica uma janela de desempate de aproximadamente 1,2 segundo (…). Em
+caso de empate, a prioridade segue dois critérios em ordem: primeiro,
+pacientes com solicitação de urgência não emergencial têm precedência
+sobre os demais; segundo, (…) vence aquele cuja consulta estava mais
+próxima em data e horário da vaga liberada”. Estes 3 testes disparam
+requisições HTTP <strong>simultâneas de verdade</strong> (não simuladas)
+para verificar se essa prioridade realmente se sustenta sob concorrência
+real.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Candidato urgente concorre com um não urgente que estava mais perto
+da vaga</td>
+<td>A urgência realmente tem prioridade sobre a proximidade, mesmo
+quando isso é “contraintuitivo” (o outro candidato estava mais
+perto)?</td>
+<td><strong>Sim</strong> — o candidato urgente vence (HTTP 200), o outro
+perde (HTTP 409) mesmo estando mais próximo da vaga</td>
+</tr>
+<tr>
+<td>Dois candidatos não urgentes concorrem pela mesma vaga</td>
+<td>Sem urgência envolvida, o segundo critério (proximidade) decide o
+empate?</td>
+<td><strong>Sim</strong> — vence quem tinha a consulta mais próxima da
+vaga liberada</td>
+</tr>
+<tr>
+<td>Dois aceites em vagas diferentes chegam ao mesmo tempo</td>
+<td>O sistema evita falsos empates entre pacientes que na verdade
+disputam vagas diferentes?</td>
+<td><strong>Sim</strong> — cada aceite é resolvido de forma
+independente, ambos os candidatos recebem sua própria vaga (HTTP 200 nos
+dois)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 3/3 aprovados.</strong> A prioridade
+“urgência &gt; proximidade” descrita no artigo se confirma mesmo com
+duas requisições concorrentes reais disputando o mesmo recurso — não é
+apenas um comportamento correto na leitura do código, mas também sob
+execução simultânea real, no processo do servidor.</p>
+<h3
+id="e.6-segurança-autenticação-rbac-injeção-de-sql-e-os-dois-achados-security.test.js">E.6
+Segurança — autenticação, RBAC, injeção de SQL e os dois achados
+(<code>security.test.js</code>)</h3>
+<p>O artigo (Seção IV-A) faz três afirmações centrais de segurança que
+estes 13 testes verificam: (1) rotas sensíveis exigem token válido; (2)
+“a separação clara de permissões por papel é considerada essencial (…)
+para a proteção dos dados do paciente, já que cada usuário acessa apenas
+as informações pertinentes à sua função”; e (3) “as consultas ao banco
+utilizam <em>prepared statements</em> (…), prevenindo ataques de injeção
+de SQL”.</p>
+<p><strong>Autenticação (4 testes)</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /reservas</code> sem token</td>
+<td>Uma rota que expõe dados de agenda pode ser acessada sem login?</td>
+<td><strong>Não</strong> — HTTP 401</td>
+</tr>
+<tr>
+<td>Token assinado com segredo errado</td>
+<td>Um token forjado por um atacante que não conhece o segredo do
+servidor é aceito?</td>
+<td><strong>Não</strong> — HTTP 401</td>
+</tr>
+<tr>
+<td>Token expirado</td>
+<td>Uma sessão vencida continua servindo?</td>
+<td><strong>Não</strong> — HTTP 401</td>
+</tr>
+<tr>
+<td>Token válido</td>
+<td>O caminho positivo (uso legítimo) funciona?</td>
+<td><strong>Sim</strong> — HTTP 200, confirmando que o bloqueio dos
+casos anteriores é específico da falha testada, não um erro
+genérico</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Controle de acesso por dono do recurso — RBAC (2
+testes)</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Paciente tenta excluir reserva que não é dele nem em que é o
+profissional</td>
+<td>A exclusão de reserva confere se quem pede é o dono ou o
+profissional responsável?</td>
+<td><strong>Sim</strong> — HTTP 403, “não tem permissão”</td>
+</tr>
+<tr>
+<td>Paciente tenta confirmar presença na reserva de outro paciente</td>
+<td>A confirmação de presença está amarrada ao dono da reserva no nível
+da consulta SQL?</td>
+<td><strong>Sim</strong> — a query já filtra por
+<code>usuario_id</code>; como não há linha correspondente, a atualização
+afeta zero registros e a rota responde HTTP 404</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Injeção de SQL (2 testes)</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Payload <code>' OR '1'='1'; DROP TABLE usuario; --</code> no e-mail
+do login</td>
+<td>O texto malicioso é concatenado à query, ou tratado como um dado
+comum?</td>
+<td><strong>Tratado como dado</strong> — a query enviada ao driver
+mysql2 preserva o <code>?</code> (placeholder); o teste captura os
+parâmetros reais enviados e confirma que o payload chega isolado, como
+um único parâmetro de <em>bind</em>, sem alterar a estrutura da
+consulta. A tentativa de login falha normalmente (HTTP 400, “Usuário não
+encontrado”)</td>
+</tr>
+<tr>
+<td>O mesmo payload no campo de CPF do cadastro</td>
+<td>A validação de negócio (checksum de CPF) já barra a tentativa antes
+mesmo de o banco ser consultado?</td>
+<td><strong>Sim</strong> — HTTP 400, e o teste confirma que nenhuma
+consulta ao banco chegou a ser disparada
+(<code>dbRouter.dbPromiseQuery</code> não foi chamada)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Achado 1 (encontrado e corrigido durante este experimento) —
+IDOR nas rotas de perfil de usuário (4 testes)</strong></p>
+<p>Ao montar os testes de RBAC, testei também as rotas de perfil de
+usuário (<code>backend/src/views/usuariosView.js</code>) partindo da
+mesma pergunta feita para reservas: <em>“um usuário autenticado consegue
+agir sobre o recurso de outro usuário?”</em> A resposta inicial,
+diferente das rotas de reserva, foi que <strong>sim, conseguia</strong>:
+nenhuma das rotas conferia se o <code>:id</code> da URL correspondia a
+quem estava logado, permitindo a qualquer paciente ler e editar o perfil
+de outra pessoa (um IDOR — <em>Insecure Direct Object Reference</em>). A
+falha foi corrigida durante a elaboração deste experimento, adicionando
+a checagem de posse nas rotas de escrita e, na rota de leitura,
+restringindo dados de paciente ao próprio dono (o perfil de um
+profissional continua acessível a qualquer autenticado, pois já é
+público em <code>/profissionais</code> e é assim que o paciente consulta
+o profissional antes de agendar). Os quatro testes abaixo verificam o
+comportamento <strong>já corrigido</strong>:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Usuário autenticado (id 1) chama
+<code>GET /usuarios/solicitarDados/2</code>, onde 2 é outro
+paciente</td>
+<td>Um paciente logado ainda consegue ler o perfil completo de outro
+paciente trocando o id na URL?</td>
+<td><strong>Não</strong> — HTTP 403. A rota agora verifica o tipo do
+usuário-alvo antes de decidir</td>
+</tr>
+<tr>
+<td>Usuário autenticado (id 1) chama
+<code>GET /usuarios/solicitarDados/2</code>, onde 2 é um
+profissional</td>
+<td>A correção não quebrou o caso legítimo de ver o perfil de um
+profissional antes de agendar?</td>
+<td><strong>Não quebrou</strong> — HTTP 200 com os dados do
+profissional; o campo interno <code>tipoUsuario</code> usado só para a
+checagem não vaza na resposta</td>
+</tr>
+<tr>
+<td>Usuário autenticado (id 1) chama
+<code>PATCH /usuarios/2/perfil</code></td>
+<td>Um paciente logado ainda consegue editar o perfil de outra
+pessoa?</td>
+<td><strong>Não</strong> — HTTP 403, e nenhuma consulta de
+<code>UPDATE</code> chega a ser disparada no banco</td>
+</tr>
+<tr>
+<td>Usuário autenticado (id 1) chama
+<code>PATCH /usuarios/1/perfil</code> (o próprio perfil)</td>
+<td>A correção preserva o caso de uso normal — editar o próprio
+perfil?</td>
+<td><strong>Sim</strong> — HTTP 200, atualização aplicada
+normalmente</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Achado 2 (encontrado e corrigido) — rota pública exigia token
+por engano (1 teste)</strong></p>
+<p>O artigo declara que “rotas públicas, como login, registro, listagem
+de profissionais e recuperação de senha, não passam por esse middleware
+[de autenticação]”. Testei essa afirmação na rota que o próprio
+front-end trata como pública e encontrei uma divergência:
+<code>GET /profissionais</code> retornava HTTP 401 mesmo sem exigir isso
+pela regra de negócio. A causa era de roteamento, não de lógica de
+autorização: <code>reservasView.js</code>,
+<code>formulariosView.js</code>, <code>usuariosView.js</code> e
+<code>vagasView.js</code> aplicam <code>router.use(authenticate)</code>
+sem restrição de caminho, e no Express isso intercepta
+<strong>qualquer</strong> requisição que passe por aquele roteador —
+mesmo sem rota correspondente nele. Como esses roteadores eram montados
+em <code>app.js</code> antes de
+<code>profissionaisView</code>/<code>empresasView</code>, todo caminho
+ainda não respondido por <code>authView</code> caía nessa barreira antes
+de alcançar a rota realmente pública. Corrigido reordenando a montagem
+dos roteadores em <code>app.js</code>, colocando os três roteadores sem
+autenticação (<code>uploadsView</code>, <code>profissionaisView</code>,
+<code>empresasView</code>) antes de qualquer roteador com
+<code>router.use(authenticate)</code> global — sem alterar a lógica de
+autorização em si, já que a rota nunca deveria exigir token.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /profissionais</code> sem token</td>
+<td>A busca pública de profissionais funciona sem login, como um
+visitante faria antes de se cadastrar?</td>
+<td><strong>Sim, agora funciona</strong> — HTTP 200 com a lista de
+profissionais, sem exigir <code>Authorization</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 13/13 aprovados</strong>, sendo 8
+confirmando que os mecanismos de segurança descritos no artigo funcionam
+como projetado, 4 confirmando a correção do IDOR de perfil de usuário, e
+1 confirmando a correção do roteamento (detalhada no item F).</p>
+<p><em>Nota: uma rota adicional, <code>POST /vagas/aceitar/:id</code>
+(usada para aceitar uma vaga liberada), também foi cogitada como um
+possível caso de rota pública mal protegida, por ser mencionada num link
+de e-mail. Ao checar o front-end, esse link aponta para a tela “Minhas
+Consultas” sem que o parâmetro do e-mail seja lido automaticamente — o
+botão que de fato aceita a vaga só aparece depois que o paciente já está
+logado e navegando na tela. Ou seja, essa rota exigir token é o
+comportamento correto, e não compõe os achados desta seção.</em></p>
+<h3
+id="e.7-rotinas-de-notificação-em-segundo-plano-unitário-notificacoes.jobs.test.js">E.7
+Rotinas de notificação em segundo plano (unitário) —
+<code>notificacoes.jobs.test.js</code></h3>
+<p>O artigo (Seção IV-B) descreve três rotinas assíncronas: o lembrete
+de confirmação de presença ao entrar na janela de 48h, a auto-liberação
+do horário quando o paciente não confirma até 15h antes, e o lembrete
+horário de urgência sem resposta. Estes 8 testes verificam cada rotina
+isoladamente, inclusive sua resiliência a falhas parciais (por exemplo,
+o provedor de e-mail fora do ar).</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reserva entra na janela de 48h sem confirmação prévia</td>
+<td>O lembrete de confirmação de presença dispara o e-mail e a
+notificação interna corretos?</td>
+<td><strong>Sim</strong> — e-mail enviado ao paciente com data/horário
+formatados, notificação criada, reserva marcada como “lembrete
+enviado”</td>
+</tr>
+<tr>
+<td>O envio do e-mail de lembrete falha</td>
+<td>Uma falha no provedor de e-mail impede que o restante da rotina
+(notificação interna, marcação de envio) aconteça?</td>
+<td><strong>Não</strong> — o job captura o erro, registra em log e
+continua normalmente; a notificação interna e a marcação são concluídas
+de qualquer forma</td>
+</tr>
+<tr>
+<td>Nenhuma reserva na janela de 48h</td>
+<td>O job evita disparos desnecessários quando não há nada a fazer?</td>
+<td><strong>Sim</strong> — nenhuma chamada de e-mail ou notificação é
+feita</td>
+</tr>
+<tr>
+<td>Reserva chega a 15h da consulta sem confirmação</td>
+<td>A auto-liberação realmente libera o horário e avisa as duas partes
+(paciente e profissional)?</td>
+<td><strong>Sim</strong> — horário liberado, e-mail ao paciente,
+notificação ao profissional</td>
+</tr>
+<tr>
+<td>A liberação no banco falha para uma reserva</td>
+<td>O sistema evita avisar paciente e profissional sobre uma liberação
+que na verdade não ocorreu?</td>
+<td><strong>Sim</strong> — se o <code>UPDATE</code> falha, nem o e-mail
+nem a notificação são disparados para aquela reserva específica</td>
+</tr>
+<tr>
+<td>Nenhuma reserva elegível para auto-liberação</td>
+<td>O job também evita ações desnecessárias nesse segundo cenário?</td>
+<td><strong>Sim</strong> — nenhuma liberação é executada</td>
+</tr>
+<tr>
+<td>Urgência pendente há mais de 1h sem resposta</td>
+<td>O lembrete horário de urgência avisa tanto o profissional quanto o
+paciente, como o artigo descreve (“lembrete por e-mail ao profissional
+(…) e uma notificação (…) O mesmo ciclo se repete a cada hora”)?</td>
+<td><strong>Sim</strong> — dois e-mails, duas notificações internas e a
+marcação de lembrete enviado, todos disparados numa única passada do
+job</td>
+</tr>
+<tr>
+<td>Nenhuma urgência pendente há mais de 1h</td>
+<td>O job fica ocioso quando não há nada pendente?</td>
+<td><strong>Sim</strong> — nenhuma chamada é feita</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 8/8 aprovados.</strong> As três rotinas
+assíncronas funcionam como descrito no artigo e continuam operando de
+forma consistente mesmo diante de falhas parciais de um serviço externo
+(e-mail).</p>
+<h3
+id="e.8-auditoria-ampliada-de-idor-segurança-idor-ampliado.test.js">E.8
+Auditoria ampliada de IDOR (segurança) —
+<code>idor-ampliado.test.js</code></h3>
+<p>O achado do item E.6 (IDOR em <code>usuariosView.js</code>) levantou
+uma pergunta natural: existe o mesmo tipo de falha em outras partes do
+sistema? Uma segunda rodada de revisão, percorrendo cada rota de
+<code>reservasView.js</code>, <code>formulariosView.js</code>,
+<code>vagasView.js</code> e <code>avaliacoesView.js</code>, encontrou o
+mesmo padrão — a rota exige um token válido, mas não confere se o dado
+pedido pertence a quem está pedindo — repetido em <strong>seis pontos
+adicionais</strong>, alguns mais graves que o original por envolverem
+dados clínicos. Todos foram corrigidos; os 19 testes abaixo comprovam a
+correção.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /reservas?profissional_id=X</code> feita por um
+paciente</td>
+<td>Um paciente autenticado consegue listar as consultas de
+<strong>todos os pacientes</strong> de um profissional só informando o
+id dele na query string?</td>
+<td><strong>Não mais</strong> — a rota agora ignora por completo os
+parâmetros da query string e usa exclusivamente o
+<code>req.userId</code> do token para decidir o filtro. Antes da
+correção, isso vazava nome, telefone, e-mail, descrição de urgência e o
+arquivo anexado de cada paciente de um profissional arbitrário</td>
+</tr>
+<tr>
+<td><code>GET /reservas</code> feita por um profissional</td>
+<td>A correção acima preserva o uso legítimo — o profissional ver a
+própria agenda?</td>
+<td><strong>Sim</strong> — continua funcionando normalmente</td>
+</tr>
+<tr>
+<td><code>GET /formularios/reserva/:id</code> por alguém alheio à
+consulta</td>
+<td>O formulário de pré-consulta (sintomas, histórico de saúde,
+medicamentos — dado sensível pela LGPD) pode ser lido por qualquer
+autenticado, bastando adivinhar o número da reserva?</td>
+<td><strong>Não mais</strong> — HTTP 403 para quem não é nem o paciente
+nem o profissional daquela consulta específica</td>
+</tr>
+<tr>
+<td><code>GET /formularios/reserva/:id</code> pelo paciente dono da
+consulta</td>
+<td>A correção preserva o acesso do próprio paciente ao seu
+formulário?</td>
+<td><strong>Sim</strong></td>
+</tr>
+<tr>
+<td><code>GET /formularios/reserva/:id</code> pelo profissional
+responsável</td>
+<td>E o acesso do profissional que vai atender essa consulta?</td>
+<td><strong>Sim</strong></td>
+</tr>
+<tr>
+<td><code>POST /formularios</code> informando o <code>usuarioId</code>
+de outra pessoa</td>
+<td>É possível gravar respostas de anamnese em nome de outro
+paciente?</td>
+<td><strong>Não mais</strong> — HTTP 403 se o <code>usuarioId</code>
+enviado não for o do próprio token</td>
+</tr>
+<tr>
+<td><code>GET /vagas/candidatos?profissional_id=X</code> por outro
+profissional</td>
+<td>Um profissional consegue ver a lista de candidatos (nomes, e-mails,
+urgências) da agenda de outro profissional?</td>
+<td><strong>Não mais</strong> — HTTP 403</td>
+</tr>
+<tr>
+<td><code>POST /vagas/notificar</code> em nome de outro
+profissional</td>
+<td>É possível disparar notificações de vaga fingindo ser outro
+profissional?</td>
+<td><strong>Não mais</strong> — HTTP 403</td>
+</tr>
+<tr>
+<td><code>GET /vagas/pendentes/:usuarioId</code> de outro paciente</td>
+<td>Um paciente vê as vagas pendentes oferecidas a outro paciente?</td>
+<td><strong>Não mais</strong> — HTTP 403</td>
+</tr>
+<tr>
+<td><code>POST /vagas/aceitar</code> com token e posse corretos</td>
+<td>A correção não quebrou o fluxo normal de aceite de vaga?</td>
+<td><strong>Não quebrou</strong> — continua funcionando (o teste chega
+até a etapa de checar consultas disponíveis)</td>
+</tr>
+<tr>
+<td><code>POST /vagas/aceitar</code> com token de uma notificação, mas
+de outro usuário</td>
+<td>Mesmo sabendo o token secreto de uma notificação, um usuário
+autenticado como outra pessoa consegue aceitá-la?</td>
+<td><strong>Não</strong> — HTTP 403; a posse do token sozinha não basta
+mais, o usuário autenticado precisa ser o notificado</td>
+</tr>
+<tr>
+<td><code>POST /vagas/recusar</code> de uma notificação de outro
+paciente</td>
+<td>Esta era a falha mais simples de explorar: a rota não pedia nada
+além do id na URL para recusar a vaga de qualquer um. Continua sendo
+assim?</td>
+<td><strong>Não mais</strong> — HTTP 403</td>
+</tr>
+<tr>
+<td><code>POST /vagas/recusar</code> da própria notificação, sem enviar
+token</td>
+<td>A correção respeita o fato de o front-end nunca ter enviado um token
+nessa rota?</td>
+<td><strong>Sim</strong> — a posse agora é conferida pelo usuário
+autenticado (JWT), sem exigir um token que a interface não envia</td>
+</tr>
+<tr>
+<td><code>GET /notificacoes-profissional/:id</code> de outro
+profissional</td>
+<td>Um profissional lê a caixa de notificações internas de outro?</td>
+<td><strong>Não mais</strong> — HTTP 403</td>
+</tr>
+<tr>
+<td><code>GET /vagas/notificados-pendentes/:id</code> de outro
+profissional</td>
+<td>Mesma pergunta, para a lista de pacientes já notificados de uma
+vaga?</td>
+<td><strong>Não mais</strong> — HTTP 403</td>
+</tr>
+<tr>
+<td><code>GET /notificacoes-paciente/:usuarioId</code> de outro
+paciente</td>
+<td>Um paciente lê as notificações internas de outro?</td>
+<td><strong>Não mais</strong> — HTTP 403</td>
+</tr>
+<tr>
+<td><code>GET /notificacoes-paciente/:usuarioId</code> do próprio
+paciente</td>
+<td>Acesso às próprias notificações continua funcionando?</td>
+<td><strong>Sim</strong></td>
+</tr>
+<tr>
+<td><code>POST /avaliacoes</code> informando um <code>usuario_id</code>
+de outra pessoa no corpo</td>
+<td>É possível publicar uma avaliação de profissional se passando por
+outro paciente?</td>
+<td><strong>Não mais</strong> — o <code>usuario_id</code> é sempre
+atribuído a partir do token (<code>req.userId</code>), o valor enviado
+no corpo é ignorado</td>
+</tr>
+<tr>
+<td><code>POST /avaliacoes</code> sem token</td>
+<td>A rota de avaliação, que antes não exigia autenticação nenhuma,
+agora exige?</td>
+<td><strong>Sim</strong> — HTTP 401</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 19/19 aprovados.</strong> Antes de cada
+correção, o código-fonte do front-end (<code>fisiopilattes_2/src</code>)
+foi conferido para garantir que nenhuma tela legítima dependia de
+acessar dados de outra pessoa — todos os usos reais desses endpoints já
+passavam o próprio id do usuário logado — de forma que nenhuma correção
+quebra uma funcionalidade existente.</p>
+<h3
+id="e.9-download-de-arquivos-enviados-exames-e-documentos-de-urgência-segurança-uploads.security.test.js">E.9
+Download de arquivos enviados — exames e documentos de urgência
+(segurança) — <code>uploads.security.test.js</code></h3>
+<p>As duas rodadas anteriores de auditoria (E.6, E.8) cobriram as rotas
+que devolvem <em>metadados</em> protegidos por dono. Uma pergunta ficou
+de fora: os <em>arquivos</em> em si — o anexo de exame enviado num
+formulário de pré-consulta (<code>exame_anexo</code>) e o documento
+anexado numa urgência (<code>arquivo_urgencia</code>) — estão protegidos
+pelo mesmo critério, ou só o link para eles está? A resposta encontrada
+foi que <strong>só o link estava protegido</strong>: o arquivo em disco
+era servido por <code>app.use('/uploads', express.static(...))</code>,
+uma rota sem nenhuma autenticação, bastando conhecer (ou adivinhar) o
+nome do arquivo salvo — que seguia o padrão previsível
+<code>&lt;timestamp&gt;-&lt;nome original&gt;</code>. Qualquer checagem
+de posse feita nas rotas de
+<code>formulariosView</code>/<code>reservasView</code> (E.6, E.8) era
+inútil contra alguém que já possuísse ou adivinhasse a URL direta do
+arquivo. Por se tratar de dado de saúde (exame anexado), essa é a falha
+mais sensível encontrada em toda a auditoria do ponto de vista da
+LGPD.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /uploads/&lt;arquivo&gt;</code> sem token</td>
+<td>O arquivo salvo em disco pode ser baixado diretamente, sem
+autenticação, bastando saber o nome dele?</td>
+<td><strong>Não mais</strong> — HTTP 401</td>
+</tr>
+<tr>
+<td>Token assinado para outro arquivo</td>
+<td>Um token válido, mas emitido para um arquivo diferente, dá acesso a
+este?</td>
+<td><strong>Não</strong> — HTTP 403; o token é amarrado ao nome do
+arquivo</td>
+</tr>
+<tr>
+<td>Token expirado</td>
+<td>Um link antigo continua funcionando indefinidamente?</td>
+<td><strong>Não</strong> — HTTP 401; o token expira em 5 minutos, no
+mesmo padrão já usado para o armazenamento em S3</td>
+</tr>
+<tr>
+<td>Token assinado com segredo errado</td>
+<td>Um token forjado por quem não conhece o segredo do servidor é
+aceito?</td>
+<td><strong>Não</strong> — HTTP 401</td>
+</tr>
+<tr>
+<td>Nome de arquivo com tentativa de <em>path traversal</em>
+(<code>../../package.json</code>)</td>
+<td>É possível usar a rota de download para ler arquivos fora da pasta
+de uploads?</td>
+<td><strong>Não</strong> — a rota rejeita nomes de arquivo que não
+correspondem exatamente ao <code>path.basename</code> esperado</td>
+</tr>
+<tr>
+<td>Token válido, correspondente ao arquivo pedido</td>
+<td>O caso de uso legítimo continua funcionando?</td>
+<td><strong>Sim</strong> — HTTP 200, conteúdo do arquivo devolvido
+corretamente</td>
+</tr>
+<tr>
+<td><code>getFileUrl</code> para armazenamento local</td>
+<td>A função que gera a URL devolvida ao front-end
+(<code>formulariosView</code>, <code>reservasView</code>) já embute esse
+token automaticamente, sem exigir mudança nas telas que exibem o
+anexo?</td>
+<td><strong>Sim</strong> — a URL relativa devolvida já vem no formato
+<code>/uploads/&lt;arquivo&gt;?token=&lt;jwt&gt;</code>, consumida do
+mesmo jeito que antes por um <code>&lt;a href&gt;</code> simples no
+front-end, sem precisar enviar cabeçalho <code>Authorization</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 7/7 aprovados.</strong> Corrigido
+substituindo o <code>express.static</code> público por uma rota
+(<code>backend/src/views/uploadsView.js</code>) que exige um token JWT
+de curta duração (5 min), amarrado ao nome do arquivo e emitido apenas
+depois que a checagem de posse do dado (já existente em
+<code>formulariosView</code>/<code>reservasView</code>) passou — o mesmo
+modelo de segurança que já era usado para o armazenamento em S3 (URL
+pré-assinada com expiração de 300s), agora replicado também para o
+armazenamento local. Nenhuma mudança foi necessária no front-end: como o
+anexo já era exibido como um link simples (<code>&lt;a href&gt;</code>),
+e não via uma chamada autenticada via JavaScript, a solução precisava
+funcionar sem cabeçalho <code>Authorization</code> — daí o token ir
+embutido na própria URL, e não num header.</p>
+<h3
+id="e.10-auditoria-por-classes-de-vulnerabilidade-e-direito-de-exclusão-de-conta-segurança-seguranca-ampliada2.test.js">E.10
+Auditoria por classes de vulnerabilidade e direito de exclusão de conta
+(segurança) — <code>seguranca-ampliada2.test.js</code></h3>
+<p>As três rodadas anteriores (E.6, E.8, E.9) percorreram rotas
+específicas em busca do mesmo tipo de falha (IDOR). Esta quarta rodada
+mudou de método: em vez de auditar rota por rota, revisei o sistema por
+<strong>classes</strong> de vulnerabilidade reconhecidas (OWASP e LGPD)
+— força bruta, gestão de segredo de sessão, exposição de dado por
+enumeração, cabeçalhos de segurança HTTP e direitos do titular dos dados
+— percorrendo <code>config.js</code>, <code>middlewares/</code>,
+<code>authView.js</code> e os modelos, não só as rotas de
+<code>views/</code>.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Carregar <code>config.js</code> sem <code>JWT_SECRET</code>
+definido</td>
+<td>O segredo usado para assinar todo token de sessão tem algum valor
+padrão previsível, caso a variável de ambiente seja esquecida?</td>
+<td><strong>Não mais</strong> — o módulo lança um erro e recusa iniciar.
+Antes, o valor padrão era a palavra <code>'secreto'</code>, escrita no
+próprio código-fonte; qualquer pessoa que a conhecesse podia forjar um
+token JWT válido para <strong>qualquer</strong> id de usuário, sem nunca
+ter feito login, e todas as checagens de posse (Achados 1–3) seriam
+inúteis contra isso</td>
+</tr>
+<tr>
+<td><code>GET /user/:id</code> sem token</td>
+<td>É possível coletar nome e e-mail de qualquer usuário do sistema
+testando ids sequenciais (1, 2, 3…), sem autenticação e sem limite de
+tentativas?</td>
+<td><strong>Não mais</strong> — HTTP 401. Confirmado no código do
+front-end que nenhuma tela usa essa rota hoje</td>
+</tr>
+<tr>
+<td><code>GET /user/:id</code> com token válido</td>
+<td>A correção não quebrou o caso de uso legítimo (se algum dia essa
+rota for usada)?</td>
+<td><strong>Não quebrou</strong> — HTTP 200, mesmos dados de antes</td>
+</tr>
+<tr>
+<td>11ª tentativa de <code>POST /login</code> no mesmo IP em 15
+minutos</td>
+<td><code>/login</code>, <code>/register</code> e
+<code>/api/forgot-password</code> aceitam tentativas ilimitadas de senha
+contra um e-mail conhecido?</td>
+<td><strong>Não mais</strong> — HTTP 429 a partir da 11ª tentativa.
+Antes não havia nenhum limite, atraso ou bloqueio</td>
+</tr>
+<tr>
+<td><code>DELETE /usuarios/:id</code> de outro usuário</td>
+<td>Um usuário autenticado consegue excluir a conta de outra
+pessoa?</td>
+<td><strong>Não</strong> — HTTP 403</td>
+</tr>
+<tr>
+<td><code>DELETE /usuarios/:id</code> sem token</td>
+<td>A exclusão de conta está protegida por autenticação?</td>
+<td><strong>Sim</strong> — HTTP 401</td>
+</tr>
+<tr>
+<td><code>DELETE /usuarios/:id</code> da própria conta</td>
+<td>O botão “Excluir conta” (novo, em <code>/Conta</code>) realmente
+remove os dados associados — inclusive nas três tabelas de notificação
+que não têm <code>FOREIGN KEY</code> para <code>usuario</code> e por
+isso não seriam limpas por uma cascata do banco?</td>
+<td><strong>Sim</strong> — o teste confirma que
+<code>notificacoes_vaga</code>, <code>notificacoes_profissional</code> e
+<code>notificacoes_paciente</code> recebem <code>DELETE</code> explícito
+para o id do usuário, além da exclusão da própria linha em
+<code>usuario</code> (que dispara em cascata <code>reservas</code>,
+<code>reset_tokens</code> e <code>avaliacoes</code> via
+<code>FOREIGN KEY ... ON DELETE CASCADE</code>)</td>
+</tr>
+<tr>
+<td><code>DELETE /usuarios/:id</code> de um id inexistente</td>
+<td>A rota distingue “excluí com sucesso” de “esse usuário nunca
+existiu”?</td>
+<td><strong>Sim</strong> — HTTP 404 em vez de 200</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 8/8 aprovados.</strong> Corrigido: (1)
+segredo do JWT sem valor padrão inseguro; (2) rate limiting em
+<code>/login</code> (10/15min), <code>/register</code> (15/hora) e
+<code>/api/forgot-password</code> (5/15min), via
+<code>express-rate-limit</code>; (3) <code>GET /user/:id</code> agora
+autenticado; (4) cabeçalhos de segurança HTTP padrão via
+<code>helmet</code>; (5) nova rota <code>DELETE /usuarios/:id</code>,
+restrita ao próprio dono, implementando o direito de exclusão da LGPD,
+com botão correspondente em “Minha Conta”. Dois pontos ficaram fora do
+escopo desta rodada, registrados como não corrigidos: ausência de
+log/trilha de auditoria de acesso, e o valor do segredo já configurado
+no <code>.env</code> deste ambiente (que continuava sendo o mesmo
+<code>'secreto'</code> que antes era só o padrão do código). Ambos foram
+fechados em seguida — ver seção E.11 e a atualização do Achado 4.</p>
+<h3
+id="e.11-log-de-auditoria-de-acesso-segurança-auditoria.test.js">E.11
+Log de auditoria de acesso (segurança) —
+<code>auditoria.test.js</code></h3>
+<p>O Achado 4 (E.10) deixou registrado como pendente, deliberadamente
+fora daquela rodada, a ausência de qualquer log de quem fez o quê no
+sistema. Sem isso, em caso de incidente de segurança não haveria como
+reconstruir a sequência de eventos — nem mesmo saber se uma conta
+específica sofreu tentativas de login por força bruta antes de o rate
+limiting existir. Esta rodada fecha esse ponto.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Teste</th>
+<th>Pergunta que responde</th>
+<th>Resultado obtido</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Login com senha correta</td>
+<td>Um login bem-sucedido fica registrado, com o id do usuário, no log
+de auditoria?</td>
+<td><strong>Sim</strong> — linha inserida em <code>log_acesso</code> com
+<code>evento='login'</code>, <code>sucesso=1</code>, IP de origem e o id
+do usuário</td>
+</tr>
+<tr>
+<td>Login com senha errada</td>
+<td>Uma tentativa de login que falha por senha incorreta também é
+registrada, e diferenciada de um sucesso?</td>
+<td><strong>Sim</strong> — <code>sucesso=0</code>, com o id do usuário
+(a senha estava errada, mas o e-mail existe) e o motivo em
+<code>detalhe</code></td>
+</tr>
+<tr>
+<td>Login com e-mail inexistente</td>
+<td>O sistema registra tentativas contra e-mails que nem existem na base
+(útil para detectar varredura/enumeração), mesmo sem um id de usuário
+para associar?</td>
+<td><strong>Sim</strong> — <code>sucesso=0</code>,
+<code>usuario_id=NULL</code>, e o e-mail tentado fica no campo
+<code>detalhe</code></td>
+</tr>
+<tr>
+<td><code>DELETE /usuarios/:id</code> da própria conta</td>
+<td>A ação mais irreversível do sistema (exclusão de conta) fica
+registrada antes de o vestígio (a própria linha do usuário)
+desaparecer?</td>
+<td><strong>Sim</strong> — o evento é gravado com o id do usuário
+<em>antes</em> da exclusão; o <code>detalhe</code> também guarda o id em
+texto, então o registro do evento sobrevive mesmo depois que a
+<code>FOREIGN KEY ... ON DELETE SET NULL</code> zera a coluna
+<code>usuario_id</code></td>
+</tr>
+<tr>
+<td>Falha ao gravar o log (tabela indisponível)</td>
+<td>Uma falha na gravação do log de auditoria consegue derrubar a
+operação principal (ex.: impedir um login válido)?</td>
+<td><strong>Não</strong> — a escrita do log é protegida por seu próprio
+try/catch e não é aguardada (<em>fire-and-forget</em>); o login segue
+respondendo normalmente mesmo com a inserção do log falhando</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado do arquivo: 5/5 aprovados.</strong> Implementado:
+nova tabela <code>log_acesso</code> (migração
+<code>20260805_create_log_acesso.sql</code>, aplicada automaticamente na
+subida do servidor, como as demais migrações do projeto) e
+<code>models/auditModel.js</code>, registrando login (sucesso e falha),
+cadastro, redefinição de senha concluída e exclusão de conta, cada um
+com id do usuário (quando conhecido), IP de origem e timestamp. Validado
+manualmente contra o MySQL real (seção G.2): registro, tentativa de
+login com senha errada e login correto de um usuário real geraram
+exatamente as três linhas esperadas na tabela.</p>
+<h2 id="f.-achados-e-discussão">F. Achados e discussão</h2>
+<p>Do total de 94 testes, <strong>todos confirmam que a implementação
+corresponde ao que o artigo descreve ou já foi corrigida para
+corresponder</strong> — não há, neste momento, nenhum achado desta
+auditoria conhecido e ainda pendente de correção, nem no código nem na
+configuração do ambiente. Os quatro achados abaixo foram encontrados e
+corrigidos ao longo do experimento, em cinco rodadas sucessivas de
+investigação, cada uma motivada por uma pergunta direta sobre o quão
+seguro o sistema realmente estava.</p>
+<h3
+id="achado-1-corrigido-padrão-de-idor-repetido-em-sete-rotas-do-backend">Achado
+1 (corrigido) — padrão de IDOR repetido em sete rotas do backend</h3>
+<p>A investigação começou pontual, em
+<code>backend/src/views/usuariosView.js</code>: as rotas de perfil
+exigiam apenas <code>router.use(authenticate)</code> (um token válido
+qualquer), sem conferir se o <code>:id</code> da URL era o mesmo usuário
+do token. Isso permitia que qualquer paciente ou profissional
+autenticado lesse e editasse o perfil de qualquer outro usuário. Ao ser
+questionado diretamente se esse era o único problema de segurança do
+sistema, o mesmo padrão foi buscado sistematicamente em todas as demais
+rotas autenticadas — e encontrado em mais <strong>seis pontos</strong>,
+listados da mais para a menos grave:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Rota</th>
+<th>O que vazava/permitia antes da correção</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /reservas?profissional_id=X</code></td>
+<td>Listava as consultas de <strong>todos os pacientes</strong> de
+qualquer profissional — nome, telefone, e-mail, descrição de urgência e
+arquivo anexado — para qualquer paciente autenticado</td>
+</tr>
+<tr>
+<td><code>GET /formularios/reserva/:id</code></td>
+<td>Expunha o formulário de pré-consulta (sintomas, histórico de saúde,
+medicamentos — dado sensível pela LGPD) de qualquer consulta a qualquer
+autenticado</td>
+</tr>
+<tr>
+<td><code>GET/PATCH /usuarios/.../perfil,localizacao,informacoes,solicitarDados</code></td>
+<td>Leitura e edição do perfil de qualquer outro usuário (achado
+original)</td>
+</tr>
+<tr>
+<td><code>GET /vagas/candidatos</code>,
+<code>POST /vagas/notificar</code>,
+<code>GET /notificacoes-profissional/:id</code>,
+<code>GET /vagas/notificados-pendentes/:id</code></td>
+<td>Permitiam ver/agir sobre a agenda e as notificações internas de
+<strong>outro profissional</strong></td>
+</tr>
+<tr>
+<td><code>POST /vagas/recusar/:id</code></td>
+<td>Recusava a vaga de qualquer paciente sem exigir absolutamente
+nenhuma prova de posse (nem token, nem checagem de usuário)</td>
+</tr>
+<tr>
+<td><code>GET /vagas/pendentes/:usuarioId</code>,
+<code>GET/POST /notificacoes-paciente/:usuarioId</code></td>
+<td>Liam/marcavam como lidas as notificações internas de <strong>outro
+paciente</strong></td>
+</tr>
+<tr>
+<td><code>POST /avaliacoes</code></td>
+<td>Publicava uma avaliação em nome de qualquer paciente, bastando
+informar o <code>usuario_id</code> de outra pessoa no corpo da
+requisição</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Correção aplicada em todos os casos:</strong> cada rota agora
+compara o identificador do recurso pedido com <code>req.userId</code>
+(extraído do JWT, portanto não falsificável pelo cliente) e responde
+HTTP 403 quando não coincidem — o mesmo padrão que já existia
+corretamente em <code>reservasView.js</code> para exclusão de reservas,
+agora replicado de forma consistente. Duas exceções deliberadas, ambas
+confirmadas no código-fonte do front-end antes da correção: (1) o perfil
+de um usuário do tipo <strong>profissional</strong> continua legível por
+qualquer autenticado, pois é a mesma informação já pública em
+<code>/profissionais</code>, e é assim que o paciente vê o profissional
+antes de agendar; (2) <code>POST /vagas/recusar</code> passou a exigir
+apenas o usuário autenticado (não um token adicional), porque o
+front-end nunca enviou esse token nessa chamada — exigi-lo quebraria a
+funcionalidade real. Os 19 testes da seção E.8 comprovam a correção, e a
+suíte completa permanece 100% aprovada após todas as mudanças.</p>
+<h3
+id="achado-2-corrigido-rota-pública-exigindo-token-por-erro-de-montagem-do-roteador">Achado
+2 (corrigido) — rota pública exigindo token por erro de montagem do
+roteador</h3>
+<p>Como descrito no item E.6, <code>GET /profissionais</code> deveria
+ser acessível sem autenticação — o próprio front-end
+(<code>EmpresasProfissionais</code>) já pressupõe isso, carregando a
+lista de profissionais independentemente de haver um usuário logado —
+mas exigia um token válido por causa da ordem de montagem dos roteadores
+em <code>app.js</code> combinada com o
+<code>router.use(authenticate)</code> sem escopo de caminho em
+<code>reservasView.js</code>, <code>formulariosView.js</code>,
+<code>usuariosView.js</code> e <code>vagasView.js</code>. Esse padrão —
+middleware de autenticação aplicado a um roteador inteiro, sem restrição
+de caminho — intercepta qualquer requisição que passe por ali, mesmo sem
+rota correspondente; como esses roteadores eram montados antes dos
+roteadores públicos, uma requisição a <code>/profissionais</code> (ou a
+<code>/empresas</code>) nunca chegava a sair do primeiro roteador
+autenticado do caminho.</p>
+<p><strong>Correção aplicada:</strong> os três roteadores sem
+autenticação do sistema (<code>uploadsView</code>,
+<code>profissionaisView</code>, <code>empresasView</code>) foram
+reordenados em <code>app.js</code> para serem montados antes de qualquer
+roteador com <code>router.use(authenticate)</code> global — sem alterar
+nenhuma regra de autorização, já que essas rotas nunca deveriam exigir
+token. O teste da seção E.6 comprova o novo comportamento (HTTP 200 sem
+<code>Authorization</code>).</p>
+<p>Uma segunda rota, <code>POST /vagas/aceitar/:id</code>, chegou a ser
+cogitada como parte do mesmo achado por aparecer referenciada num link
+de e-mail, mas a investigação do fluxo real no front-end mostrou que
+essa suspeita não se confirma: o link do e-mail leva a um parâmetro de
+URL que a tela “Minhas Consultas” não lê automaticamente, e o botão que
+efetivamente aceita a vaga só existe depois que o paciente já está
+autenticado e navegando na tela. Portanto essa rota exigir token está
+correto, e não é tratada como achado.</p>
+<h3
+id="achado-3-corrigido-arquivos-enviados-exames-documentos-de-urgência-eram-servidos-publicamente">Achado
+3 (corrigido) — arquivos enviados (exames, documentos de urgência) eram
+servidos publicamente</h3>
+<p>O achado mais sensível da auditoria do ponto de vista da LGPD. As
+correções dos Achados 1 e 2, e da seção E.8, protegem os
+<em>metadados</em> de uma consulta ou formulário (quem pode ler o
+registro no banco), mas nenhuma delas alcança o <em>arquivo em si</em>
+quando o sistema roda em armazenamento local (sem S3 configurado):
+<code>backend/src/app.js</code> expunha a pasta inteira de uploads via
+<code>express.static('/uploads', ...)</code>, sem qualquer autenticação.
+O nome de cada arquivo seguia o padrão previsível
+<code>&lt;timestamp-em-milissegundos&gt;-&lt;nome-original-sanitizado&gt;</code>,
+de forma que qualquer pessoa que descobrisse ou adivinhasse um nome de
+arquivo — inclusive um anexo de exame (<code>exame_anexo</code>, no
+formulário de pré-consulta) — conseguia baixá-lo diretamente, para
+sempre, sem estar logada e sem ser a paciente ou o profissional daquela
+consulta. Verificado na pasta <code>backend/uploads/</code> deste
+próprio ambiente de desenvolvimento: havia arquivos reais de uso
+anterior do sistema acessíveis exatamente dessa forma.</p>
+<p><strong>Correção aplicada:</strong> detalhada na seção E.9 — a rota
+pública de arquivos estáticos foi substituída por uma rota que exige um
+token assinado (JWT, 5 min de validade) amarrado ao nome do arquivo,
+gerado apenas depois que a checagem de posse já feita em
+<code>formulariosView</code>/<code>reservasView</code> (Achado 1, seção
+E.8) é aprovada. O mesmo modelo de segurança já existia para arquivos
+armazenados em S3 (URL pré-assinada de 300s); a correção o estende
+também ao armazenamento local, sem exigir nenhuma mudança no front-end.
+Os 7 testes de <code>uploads.security.test.js</code> comprovam a
+correção.</p>
+<p><strong>Nota sobre S3:</strong> no ambiente de produção configurado
+neste projeto (<code>.env</code> com
+<code>S3_ENDPOINT</code>/<code>S3_BUCKET</code> preenchidos), o
+armazenamento local nunca chega a ser usado — todo upload novo vai para
+o S3/MinIO, já protegido por URL pré-assinada. Ainda assim, a correção
+era necessária: o armazenamento local é o <em>fallback</em> automático e
+silencioso caso as variáveis de ambiente do S3 fiquem ausentes (erro de
+configuração, migração de servidor, ambiente de homologação), e sem ela
+um erro de configuração transformaria silenciosamente todos os exames
+anexados em dados públicos.</p>
+<h3
+id="achado-4-corrigido-segredo-do-jwt-sem-valor-padrão-seguro-força-bruta-sem-limite-e-exposição-de-dado-por-enumeração">Achado
+4 (corrigido) — segredo do JWT sem valor padrão seguro, força bruta sem
+limite e exposição de dado por enumeração</h3>
+<p>A quarta rodada de investigação (E.10) trocou o método: em vez de
+auditar rota por rota, revisei classes inteiras de vulnerabilidade
+reconhecidas — força bruta, segredo de sessão, exposição por enumeração
+— em <code>config.js</code>, <code>middlewares/</code> e
+<code>authView.js</code>, não só nas rotas de <code>views/</code>. O
+achado mais grave de toda a auditoria estava aqui:
+<code>config.js</code> continha
+<code>jwtSecret: process.env.JWT_SECRET || 'secreto'</code>. O
+<code>JWT_SECRET</code> é a chave usada pelo servidor para assinar (e
+depois verificar) todo token de sessão — não é gerado a cada login, é um
+único valor configurado uma vez para todo o servidor. Um valor padrão
+escrito no próprio código-fonte, usado sempre que a variável de ambiente
+não for configurada, não é segredo nenhum: confirmei localmente que, com
+esse valor, é possível forjar um token JWT válido para <strong>qualquer
+id de usuário</strong>, sem nunca ter feito login — o que anularia todas
+as checagens de posse dos Achados 1–3, já que todas elas confiam no
+<code>req.userId</code> extraído do token.</p>
+<p>Junto com esse achado, a mesma rodada encontrou:
+<code>GET /user/:id</code> sem autenticação, permitindo coletar nome e
+e-mail de qualquer usuário testando ids sequenciais (dado pessoal
+exposto por simples enumeração); e ausência total de limite de
+tentativas em <code>/login</code>, <code>/register</code> e
+<code>/api/forgot-password</code>, permitindo força bruta de senha ou
+varredura de e-mails cadastrados sem qualquer fricção.</p>
+<p><strong>Correção aplicada:</strong> (1) <code>config.js</code> agora
+lança um erro e recusa iniciar o servidor se <code>JWT_SECRET</code> não
+estiver definido, eliminando o valor padrão inseguro; (2)
+<code>GET /user/:id</code> passou a exigir <code>authenticate</code>
+(nenhuma tela do front-end usava essa rota, confirmado por busca no
+código); (3) <code>express-rate-limit</code> aplicado a
+<code>/login</code> (10 tentativas/15min), <code>/register</code>
+(15/hora) e <code>/api/forgot-password</code> (5/15min); (4)
+<code>helmet</code> adicionado para os cabeçalhos de segurança HTTP
+padrão. Os 8 testes de <code>seguranca-ampliada2.test.js</code> (seção
+E.10) comprovam as quatro correções.</p>
+<p><strong>Ressalva fechada numa rodada seguinte:</strong> a correção do
+<code>config.js</code> impedia o servidor de rodar
+<em>silenciosamente</em> com um segredo previsível, mas não trocava,
+sozinha, o valor que já estava configurado no <code>.env</code> deste
+ambiente — que continuava sendo <code>secreto</code>, o mesmo valor que
+antes era só o padrão do código. Como trocar o conteúdo de uma variável
+de ambiente é uma mudança de credencial, e não de código-fonte, isso foi
+feito à parte, mediante confirmação explícita: o <code>.env</code> deste
+ambiente foi atualizado para um segredo aleatório de 96 caracteres
+hexadecimais (<code>crypto.randomBytes(48).toString('hex')</code>), o
+que também invalidou (como esperado) qualquer sessão ativa assinada com
+o valor anterior.</p>
+<p><strong>Também identificado nesta rodada e fechado logo em seguida
+(seção E.11):</strong> ausência de log/trilha de auditoria de acesso —
+não havia registro de quem acessou o quê, relevante em caso de incidente
+e para a rastreabilidade de acesso a dado pessoal exigida pela LGPD.</p>
+<h3
+id="nova-funcionalidade-decorrente-da-auditoria-exclusão-de-conta-direito-do-titular-lgpd">Nova
+funcionalidade decorrente da auditoria — exclusão de conta (direito do
+titular, LGPD)</h3>
+<p>Nenhuma rota do sistema implementava a exclusão de conta ou a remoção
+dos dados associados a um usuário — um direito garantido ao titular dos
+dados pela LGPD. Foi adicionada a rota <code>DELETE /usuarios/:id</code>
+(restrita ao próprio dono, mesma checagem <code>exigirDono</code> já
+usada nas demais rotas de edição de perfil), que remove a linha do
+usuário — disparando em cascata, via
+<code>FOREIGN KEY ... ON DELETE CASCADE</code>, a exclusão de
+<code>reservas</code>, <code>reset_tokens</code> e
+<code>avaliacoes</code> — e remove manualmente as linhas em
+<code>notificacoes_vaga</code>, <code>notificacoes_profissional</code> e
+<code>notificacoes_paciente</code>, que não têm <code>FOREIGN KEY</code>
+para <code>usuario</code> e por isso não seriam limpas automaticamente
+pelo banco. Os arquivos locais de exame/urgência associados às reservas
+do usuário também são apagados do disco. Um botão “Excluir conta” foi
+adicionado à tela “Minha Conta”, ao lado de “Sair da conta”, com uma
+confirmação inline (mensagem de aviso e botão “Sim, excluir minha conta”
+exibidos abaixo do botão, sem depender de pop-up do navegador) antes de
+executar, por se tratar de uma ação irreversível. Testado manualmente no
+navegador pelo próprio autor, confirmando o fluxo completo de ponta a
+ponta.</p>
+<h2
+id="g.-auditoria-de-dependências-e-validação-manual-contra-a-aplicação-real">G.
+Auditoria de dependências e validação manual contra a aplicação
+real</h2>
+<p>Os 94 testes automatizados (itens D–E) rodam com o banco de dados e o
+provedor de e-mail substituídos por mocks — o que garante determinismo,
+mas não prova, sozinho, que a aplicação real (com MySQL e armazenamento
+de arquivos de verdade) se comporta da mesma forma. Dois exames
+complementares, fora da suíte Jest, foram feitos para cobrir essa
+lacuna.</p>
+<h3 id="g.1-npm-audit-vulnerabilidades-conhecidas-nas-dependências">G.1
+<code>npm audit</code> — vulnerabilidades conhecidas nas
+dependências</h3>
+<p>Nenhum dos testes anteriores audita as bibliotecas de terceiros
+usadas pelo projeto. Rodar <code>npm audit</code> no diretório
+<code>backend/</code> encontrou 5 vulnerabilidades conhecidas (2
+moderadas, 3 altas) publicadas para versões instaladas de pacotes
+transitivos:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Pacote</th>
+<th>Severidade</th>
+<th>Vulnerabilidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jws</code> (dependência de <code>jsonwebtoken</code>)</td>
+<td><strong>Alta</strong></td>
+<td><em>Improperly Verifies HMAC Signature</em> (GHSA-869p-cjfg-cm3x) —
+na própria biblioteca que verifica a assinatura de todo token de sessão
+do sistema</td>
+</tr>
+<tr>
+<td><code>path-to-regexp</code> (dependência de
+<code>express</code>)</td>
+<td>Alta</td>
+<td>Negação de serviço por expressão regular (ReDoS) ao processar rotas
+com múltiplos parâmetros (GHSA-37ch-88jc-xwx2)</td>
+</tr>
+<tr>
+<td><code>body-parser</code> (dependência de <code>express</code>)</td>
+<td>Moderada</td>
+<td>Negação de serviço quando um valor de limite inválido desativa
+silenciosamente o controle de tamanho do corpo da requisição
+(GHSA-v422-hmwv-36x6)</td>
+</tr>
+<tr>
+<td><code>qs</code></td>
+<td>Moderada</td>
+<td>Três falhas de negação de serviço na análise de query strings
+(GHSA-w7fw-mjwx-w883 e relacionadas)</td>
+</tr>
+</tbody>
+</table>
+<p>O achado mais relevante para este trabalho é o de <code>jws</code>:
+por estar na cadeia de verificação de assinatura do JWT, uma falha ali
+teria o mesmo tipo de impacto do Achado 4 (bypass de autenticação) mesmo
+com o <code>JWT_SECRET</code> corrigido.</p>
+<p><strong>Correção aplicada:</strong> <code>npm audit fix</code>
+atualizou <code>jws</code> (3.2.2 → 3.2.3), <code>express</code> (4.21.2
+→ 4.22.2), <code>path-to-regexp</code>, <code>qs</code> e
+<code>body-parser</code> para as versões corrigidas, sem quebra de
+compatibilidade (nenhuma versão <em>major</em> mudou). Rodar
+<code>npm test</code> após a atualização confirmou 89/89 aprovados, sem
+regressão. <code>npm audit</code> após a correção: <strong>0
+vulnerabilidades</strong>.</p>
+<h3
+id="g.2-validação-manual-contra-o-backend-real-mysql-e-o-front-end-real">G.2
+Validação manual contra o backend real (MySQL) e o front-end real</h3>
+<p>Para confirmar que o comportamento observado nos testes com mock
+também se sustenta com o banco de dados de verdade, o backend foi
+executado localmente (<code>npm start</code>) contra a instância real de
+MySQL e MinIO do ambiente de desenvolvimento, e testado com requisições
+HTTP reais (<code>curl</code>), sem nenhum mock:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Verificação manual</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /profissionais</code> sem token</td>
+<td>HTTP 200 (rota pública funcionando, achado 2)</td>
+</tr>
+<tr>
+<td><code>GET /reservas</code> sem token</td>
+<td>HTTP 401</td>
+</tr>
+<tr>
+<td>Cabeçalhos de resposta do <code>helmet</code></td>
+<td><code>Content-Security-Policy</code>,
+<code>Strict-Transport-Security</code>,
+<code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>
+presentes</td>
+</tr>
+<tr>
+<td><code>GET /uploads/&lt;arquivo&gt;</code> sem token</td>
+<td>HTTP 401 (achado 3)</td>
+</tr>
+<tr>
+<td>11ª tentativa de login errada em sequência</td>
+<td>HTTP 429 (rate limiting, achado 4)</td>
+</tr>
+<tr>
+<td><code>GET /user/:id</code> sem token</td>
+<td>HTTP 401 (achado 4)</td>
+</tr>
+<tr>
+<td>Cadastro de um usuário real, login, e
+<code>DELETE /usuarios/:id</code> de <strong>outro</strong> id com o
+próprio token</td>
+<td>HTTP 403</td>
+</tr>
+<tr>
+<td><code>DELETE /usuarios/:id</code> da própria conta, seguido de nova
+tentativa de login</td>
+<td>Conta excluída (HTTP 200); login seguinte retornou “Usuário não
+encontrado”, confirmando a remoção real no banco</td>
+</tr>
+<tr>
+<td>Cadastro real → login com senha errada → login correto, consultando
+<code>log_acesso</code> direto no MySQL depois</td>
+<td>Três linhas gravadas, na ordem certa: <code>cadastro</code>
+(sucesso=1), <code>login</code> (sucesso=0, detalhe “senha incorreta”),
+<code>login</code> (sucesso=1) — todas com o id correto do usuário e o
+IP de origem (seção E.11)</td>
+</tr>
+</tbody>
+</table>
+<p>Todas as nove verificações reproduziram exatamente o comportamento
+que os testes automatizados com mock previam, sem nenhuma divergência.
+Adicionalmente, <code>npm run build</code> do front-end
+(<code>fisiopilattes_2/</code>) foi executado sem erros, e o botão
+“Excluir conta” foi testado manualmente no navegador pelo autor contra o
+backend real, com resultado positivo.</p>
+<h2 id="h.-como-reproduzir">H. Como reproduzir</h2>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> install</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> test</span></code></pre></div>
+<p>Nenhuma variável de ambiente de banco de dados ou de provedor de
+e-mail é necessária — todas as dependências externas são substituídas
+por mocks determinísticos, como descrito no item B.</p>
+</body>
+</html>

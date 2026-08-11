@@ -126,6 +126,14 @@ const getNotificacaoPorIdEToken = async (id, token) => {
   return rows[0] || null;
 };
 
+const getNotificacaoPorId = async (id) => {
+  const [rows] = await dbPromise.query(
+    'SELECT * FROM notificacoes_vaga WHERE id = ? AND status = "pendente" LIMIT 1',
+    [id]
+  );
+  return rows[0] || null;
+};
+
 const aceitarNotificacao = async (id) => {
   await dbPromise.query('UPDATE notificacoes_vaga SET status = "aceita" WHERE id = ?', [id]);
 };
@@ -204,6 +212,7 @@ module.exports = {
   criarNotificacao,
   getPendentesPorUsuario,
   getNotificacaoPorIdEToken,
+  getNotificacaoPorId,
   aceitarNotificacao,
   recusarNotificacao,
   expirarOutras,

@@ -92,7 +92,7 @@ const listLoggedUsers = (cb) => {
 
 const getUserInfoById = (id, cb) => {
   const query =
-    'SELECT id, nome, sobrenome, email, telefone, genero, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, valorPresencial, valorOnline, valorDomiciliar, diasAtendimento, horariosAtendimento, aceitandoConsultas FROM usuario WHERE id = ?';
+    'SELECT id, tipoUsuario, nome, sobrenome, email, telefone, genero, tipoProfissional, especialidadeMedica, profissaoCustomizada, numeroConselho, latitude, longitude, cidade, ufRegiao, descricao, publicoAtendido, modalidade, valorConsulta, valorPresencial, valorOnline, valorDomiciliar, diasAtendimento, horariosAtendimento, aceitandoConsultas FROM usuario WHERE id = ?';
   pool.query(query, [id], (err, rows) => {
     if (err) return cb(err);
     cb(null, rows && rows[0] ? rows[0] : null);
@@ -221,6 +221,37 @@ const getBloqueio = async (usuario_id) => {
   return row;
 };
 
+const excluirConta = async (usuarioId) => {
+  const [reservasDoUsuario] = await dbPromise.query(
+    'SELECT arquivo_urgencia FROM reservas WHERE usuario_id = ? AND arquivo_urgencia IS NOT NULL',
+    [usuarioId]
+  );
+  const arquivosLocais = reservasDoUsuario.map((r) => r.arquivo_urgencia).filter(Boolean);
+
+  const [formulariosDoUsuario] = await dbPromise.query(
+    `SELECT f.conteudo FROM formularios f
+     JOIN reservas r ON r.id = f.reserva_id
+     WHERE r.usuario_id = ?`,
+    [usuarioId]
+  );
+  formulariosDoUsuario.forEach((f) => {
+    try {
+      const conteudo = JSON.parse(f.conteudo);
+      if (conteudo && conteudo.anexoExame) arquivosLocais.push(conteudo.anexoExame);
+    } catch {
+      // conteúdo não é um JSON válido — sem anexo a limpar aqui
+    }
+  });
+
+  await dbPromise.query('DELETE FROM notificacoes_vaga WHERE profissional_id = ? OR usuario_notificado_id = ?', [usuarioId, usuarioId]);
+  await dbPromise.query('DELETE FROM notificacoes_profissional WHERE profissional_id = ?', [usuarioId]);
+  await dbPromise.query('DELETE FROM notificacoes_paciente WHERE usuario_id = ?', [usuarioId]);
+
+  const [result] = await dbPromise.query('DELETE FROM usuario WHERE id = ?', [usuarioId]);
+
+  return { affectedRows: result.affectedRows, arquivosLocais };
+};
+
 module.exports = {
   findByEmail,
   findBasicById,
@@ -245,5 +276,6 @@ module.exports = {
   bloquearTemporariamente,
   getBloqueio,
   BLOQUEIO_DIAS,
+  excluirConta,
 };
 

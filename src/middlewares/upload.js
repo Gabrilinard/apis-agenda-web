@@ -2,8 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
+const jwt = require('jsonwebtoken');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const config = require('../config');
 
 const USE_S3 = !!(process.env.S3_ENDPOINT && process.env.S3_ACCESS_KEY && process.env.S3_SECRET_KEY && process.env.S3_BUCKET);
 
@@ -58,11 +60,22 @@ const extractS3Key = (stored) => {
   }
 };
 
+// Assina um acesso de curta duração (5 min) ao arquivo local, no mesmo espírito da
+// URL pré-assinada do S3: o token prova que quem gerou o link já passou pela checagem
+// de posse (feita antes de chamar getFileUrl nas views), sem exigir que o <a href>
+// do front-end envie um cabeçalho Authorization — algo que uma tag <a> comum não faz.
+const signLocalFileToken = (filename) =>
+  jwt.sign({ file: filename }, config.jwtSecret, { expiresIn: '5m' });
+
 const getFileUrl = async (stored) => {
   if (!stored) return null;
-  if (!USE_S3) return stored;
-  const key = extractS3Key(stored);
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }), { expiresIn: 300 });
+  if (USE_S3) {
+    const key = extractS3Key(stored);
+    return getSignedUrl(s3, new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }), { expiresIn: 300 });
+  }
+  const filename = path.basename(stored);
+  const token = signLocalFileToken(filename);
+  return `/uploads/${filename}?token=${token}`;
 };
 
 module.exports = { upload, USE_S3, getFileUrl };

@@ -139,16 +139,7 @@ router.get('/reservas', async (req, res) => {
     if (!usuario) return res.status(401).json({ error: 'Usuário não encontrado.' });
 
     const isProfissional = usuario.tipoUsuario === 'profissional';
-    const filters = { ...req.query };
-
-    if (filters.usuario_id !== undefined) {
-      filters.usuario_id = req.userId;
-    }
-
-    if (filters.usuario_id === undefined && filters.profissional_id === undefined) {
-      if (isProfissional) filters.profissional_id = req.userId;
-      else filters.usuario_id = req.userId;
-    }
+    const filters = isProfissional ? { profissional_id: req.userId } : { usuario_id: req.userId };
 
     reservasModel.list(filters, async (err, results) => {
       if (err) return res.status(500).json(err);
@@ -415,6 +406,9 @@ router.patch('/reservas/editar/:id', async (req, res) => {
 });
 
 router.get('/notificacoes-paciente/:usuarioId', async (req, res) => {
+  if (Number(req.params.usuarioId) !== req.userId) {
+    return res.status(403).json({ error: 'Você não tem permissão para ver as notificações de outro usuário.' });
+  }
   try {
     const notificacoes = await notificacoesPacienteModel.listarPorUsuario(req.params.usuarioId);
     res.json(notificacoes);
@@ -424,6 +418,9 @@ router.get('/notificacoes-paciente/:usuarioId', async (req, res) => {
 });
 
 router.post('/notificacoes-paciente/:usuarioId/lidas', async (req, res) => {
+  if (Number(req.params.usuarioId) !== req.userId) {
+    return res.status(403).json({ error: 'Você não tem permissão para alterar as notificações de outro usuário.' });
+  }
   try {
     await notificacoesPacienteModel.marcarLidas(req.params.usuarioId);
     res.json({ success: true });

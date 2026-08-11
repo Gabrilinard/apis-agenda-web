@@ -1,5 +1,6 @@
 const express = require('express');
 const { dbPromise } = require('../db');
+const { authenticate } = require('../middlewares/auth');
 
 const router = express.Router();
 
@@ -45,9 +46,10 @@ router.get('/avaliacoes/reserva/:reserva_id', async (req, res) => {
   }
 });
 
-router.post('/avaliacoes', async (req, res) => {
-  const { reserva_id, usuario_id, profissional_id, nota, comentario } = req.body;
-  if (!reserva_id || !usuario_id || !profissional_id || !nota) {
+router.post('/avaliacoes', authenticate, async (req, res) => {
+  const { reserva_id, profissional_id, nota, comentario } = req.body;
+  const usuario_id = req.userId;
+  if (!reserva_id || !profissional_id || !nota) {
     return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
   }
   if (nota < 1 || nota > 5) return res.status(400).json({ error: 'Nota deve ser entre 1 e 5' });
