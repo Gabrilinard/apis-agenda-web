@@ -76,7 +76,7 @@ Tempo total de execução: aproximadamente 14 segundos, sem dependências extern
 
 ## D. Procedimento
 
-Os 74 testes foram organizados em cinco categorias metodológicas:
+Os 94 testes foram organizados em cinco categorias metodológicas:
 
 - **Unitário**: exercita uma função isolada (middleware, regra de modelo, job de
   background), com toda dependência externa substituída por mock.
