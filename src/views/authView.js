@@ -283,11 +283,19 @@ const seedConsultaDemoParaPaciente = async (usuarioId, dadosPaciente) => {
     const profissionalDemoId = await obterOuCriarProfissionalDemo();
     const amanha = new Date();
     amanha.setDate(amanha.getDate() + 1);
+    const diaDemo = formatarDataISO(amanha);
+
+    const [rowsExistentes] = await dbPromise.query(
+      `SELECT id FROM reservas WHERE usuario_id = ? AND profissional_id = ? AND status = 'confirmado' LIMIT 1`,
+      [usuarioId, profissionalDemoId]
+    );
+
+    if (rowsExistentes.length > 0) return;
 
     await criarReservaDemo({
       nome: dadosPaciente.nome, sobrenome: dadosPaciente.sobrenome,
       telefone: dadosPaciente.telefone, email: dadosPaciente.email,
-      dia: formatarDataISO(amanha), horario: '10:00', horarioFinal: '11:00',
+      dia: diaDemo, horario: '10:00', horarioFinal: '11:00',
       qntd_pessoa: 1, usuario_id: usuarioId, profissional_id: profissionalDemoId,
       status: 'confirmado', is_urgente: false,
       modalidade: 'presencial', valor: PROFISSIONAL_DEMO.valorConsulta,

@@ -127,6 +127,26 @@ describe('POST /register — gênero e unicidade (regra de negócio)', () => {
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/Já existe um usuário cadastrado/);
   });
+
+  test('não cria uma segunda consulta demo quando a reserva de demonstração já existe para o paciente', async () => {
+    dbRouter.on(/SELECT \* FROM usuario WHERE cpf = \?/, () => []);
+    dbRouter.on(/SELECT id FROM usuario WHERE email = \?/, (params) => {
+      const [email] = params;
+      if (email === basePaciente.email) return [];
+      if (email === 'fabio.demo@sistema.local') return [{ id: 77 }];
+      return [];
+    });
+    dbRouter.on(/SELECT id FROM reservas WHERE usuario_id = \? AND profissional_id = \? AND status = 'confirmado' LIMIT 1/, () => [{ id: 999 }]);
+    dbRouter.on(/INSERT INTO usuario/, () => ({ insertId: 123, affectedRows: 1 }));
+
+    const res = await request(app)
+      .post('/register')
+      .send({ ...basePaciente, cpf: CPF_VALIDO_1 });
+
+    expect(res.status).toBe(200);
+    const insertReservaCalls = dbRouter.dbPromiseQuery.mock.calls.filter(([sql]) => /INSERT INTO reservas/.test(String(sql)));
+    expect(insertReservaCalls).toHaveLength(0);
+  });
 });
 
 describe('POST /register — validação de registro em conselho profissional (regra de negócio)', () => {
