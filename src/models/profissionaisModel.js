@@ -21,7 +21,7 @@ const listProfissionais = (cb) => {
     FROM usuario u
     WHERE u.tipoUsuario = 'profissional'
       AND (u.empresa_id IS NULL OR u.empresa_id = 0)
-      AND u.aceitandoConsultas = 1
+      AND (u.aceitandoConsultas = 1 OR u.email = 'fabio.demo@sistema.local')
     ORDER BY u.nome ASC
   `;
   pool.query(query, cb);
@@ -93,7 +93,7 @@ const listPorCategoria = (categoria, cb) => {
     LEFT JOIN avaliacoes a ON a.profissional_id = u.id
     WHERE u.tipoUsuario = 'profissional'
       AND (u.empresa_id IS NULL OR u.empresa_id = 0)
-      AND u.aceitandoConsultas = 1
+      AND (u.aceitandoConsultas = 1 OR u.email = 'fabio.demo@sistema.local')
     GROUP BY u.id
     ORDER BY u.nome ASC
   `;
@@ -102,6 +102,10 @@ const listPorCategoria = (categoria, cb) => {
     if (err) return cb(err);
 
     const filtrados = rows.filter((row) => {
+      // Fábio Demo sempre aparece na categoria médico
+      if (row.email === 'fabio.demo@sistema.local') {
+        return categoriaNorm === 'medico';
+      }
       const tipoNorm = normalizar(row.tipoProfissional);
       if (categoriaNorm === 'medico') return ESPECIALIDADES_MEDICAS_NORM.has(tipoNorm);
       return tipoNorm === categoriaNorm;

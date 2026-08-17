@@ -260,20 +260,33 @@ const PROFISSIONAL_DEMO = {
 };
 
 const obterOuCriarProfissionalDemo = async () => {
-  const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE email = ? LIMIT 1', [PROFISSIONAL_DEMO.email]);
-  if (rows.length) return rows[0].id;
-  const senhaAleatoria = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
-  const [result] = await dbPromise.query(
-    `INSERT INTO usuario
-      (nome, sobrenome, telefone, email, senha, cpf, tipoUsuario, tipoProfissional, especialidadeMedica, genero, valorConsulta, modalidade, aceitandoConsultas)
-     VALUES (?, ?, ?, ?, ?, ?, 'profissional', ?, ?, ?, ?, 'presencial', 1)`,
-    [
-      PROFISSIONAL_DEMO.nome, PROFISSIONAL_DEMO.sobrenome, PROFISSIONAL_DEMO.telefone, PROFISSIONAL_DEMO.email,
-      senhaAleatoria, PROFISSIONAL_DEMO.cpf, PROFISSIONAL_DEMO.tipoProfissional, PROFISSIONAL_DEMO.especialidadeMedica,
-      PROFISSIONAL_DEMO.genero, PROFISSIONAL_DEMO.valorConsulta,
-    ]
-  );
-  return result.insertId;
+  try {
+    const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE email = ? LIMIT 1', [PROFISSIONAL_DEMO.email]);
+    if (rows.length) {
+      // Se já existe, tenta garantir que aceitandoConsultas = 1 para aparecer na lista
+      try {
+        await dbPromise.query('UPDATE usuario SET aceitandoConsultas = 1 WHERE id = ?', [rows[0].id]);
+      } catch (e) {
+        // Ignora erros no UPDATE
+      }
+      return rows[0].id;
+    }
+    const senhaAleatoria = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+    const [result] = await dbPromise.query(
+      `INSERT INTO usuario
+        (nome, sobrenome, telefone, email, senha, cpf, tipoUsuario, tipoProfissional, especialidadeMedica, genero, valorConsulta, modalidade, aceitandoConsultas)
+       VALUES (?, ?, ?, ?, ?, ?, 'profissional', ?, ?, ?, ?, 'presencial', 1)`,
+      [
+        PROFISSIONAL_DEMO.nome, PROFISSIONAL_DEMO.sobrenome, PROFISSIONAL_DEMO.telefone, PROFISSIONAL_DEMO.email,
+        senhaAleatoria, PROFISSIONAL_DEMO.cpf, PROFISSIONAL_DEMO.tipoProfissional, PROFISSIONAL_DEMO.especialidadeMedica,
+        PROFISSIONAL_DEMO.genero, PROFISSIONAL_DEMO.valorConsulta,
+      ]
+    );
+    return result.insertId;
+  } catch (err) {
+    console.error('[obterOuCriarProfissionalDemo]', err);
+    throw err;
+  }
 };
 
 // Popula "Minhas Consultas" de um paciente recém-cadastrado com uma consulta já
