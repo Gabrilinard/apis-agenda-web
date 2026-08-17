@@ -23,11 +23,12 @@ router.get('/profissionais', async (req, res) => {
 
 // IMPORTANTE: Rota de categoria DEVE vir ANTES de :id, senão "/profissionais/medico" 
 // será capturado como ID em vez de categoria
-router.get('/profissionais/:categoria', async (req, res) => {
+router.get('/profissionais/:categoria', async (req, res, next) => {
   const { categoria } = req.params;
   const categoriasValidas = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo', 'psicologo'];
   if (!categoriasValidas.includes(categoria)) {
-    // Se não é uma categoria válida, pode ser um ID numérico - passa para próxima rota
+    // Se for um ID numérico, passa para a rota de busca por ID
+    if (/^\d+$/.test(categoria)) return next();
     return res.status(400).json({ error: 'Categoria inválida' });
   }
 
