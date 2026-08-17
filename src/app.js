@@ -16,6 +16,20 @@ const usuariosView = require('./views/usuariosView');
 const vagasView = require('./views/vagasView');
 const avaliacoesView = require('./views/avaliacoesView');
 
+const gerarSlotsMeiaHora = (inicio, fim) => {
+  const slots = [];
+  let [h, m] = inicio.split(':').map(Number);
+  const [hFim, mFim] = fim.split(':').map(Number);
+  while (h < hFim || (h === hFim && m < mFim)) {
+    slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    m += 30;
+    if (m >= 60) { m -= 60; h += 1; }
+  }
+  return slots;
+};
+
+const HORARIO_DEMO_DIA = gerarSlotsMeiaHora('09:00', '17:00');
+
 const PROFISSIONAL_DEMO = {
   nome: 'Fábio', sobrenome: 'Demonstração', email: 'fabio.demo@sistema.local', cpf: '00000000005',
   telefone: '(11) 90000-0005', tipoProfissional: 'medico', especialidadeMedica: 'Clínico Geral',
@@ -27,11 +41,11 @@ const PROFISSIONAL_DEMO = {
   valorOnline: '120',
   valorDomiciliar: '200',
   horariosAtendimento: JSON.stringify({
-    Segunda: ['09:00', '17:00'],
-    Terça: ['09:00', '17:00'],
-    Quarta: ['09:00', '17:00'],
-    Quinta: ['09:00', '17:00'],
-    Sexta: ['09:00', '17:00'],
+    Segunda: HORARIO_DEMO_DIA,
+    Terça: HORARIO_DEMO_DIA,
+    Quarta: HORARIO_DEMO_DIA,
+    Quinta: HORARIO_DEMO_DIA,
+    Sexta: HORARIO_DEMO_DIA,
   }),
   diasAtendimento: JSON.stringify(['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta']),
   ufRegiao: 'SP',
