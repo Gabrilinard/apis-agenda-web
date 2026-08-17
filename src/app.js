@@ -120,6 +120,10 @@ const garantirFabioDemoExiste = async () => {
 const createApp = () => {
   const app = express();
 
+  // Necessário atrás de proxies (Railway, etc.) para que express-rate-limit
+  // e outros middlewares baseados em IP leiam o X-Forwarded-For corretamente.
+  app.set('trust proxy', 1);
+
   // Garante que o Fábio Demo existe quando o app inicia
   garantirFabioDemoExiste();
 
