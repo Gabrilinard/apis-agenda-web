@@ -13,6 +13,7 @@ const { GENEROS_VALIDOS } = require('../utils/titulo');
 const { authenticate } = require('../middlewares/auth');
 const { loginLimiter, registerLimiter, forgotPasswordLimiter } = require('../middlewares/rateLimit');
 const auditModel = require('../models/auditModel');
+const { PROFISSIONAL_DEMO } = require('../constants/profissionalDemo');
 
 const router = express.Router();
 
@@ -164,8 +165,6 @@ const getFormularioDemoBruno = (tipoProfissional, pacB, demo) => {
   return porProfissao[tipoProfissional] || porProfissao.fisioterapeuta;
 };
 
-// Popula a agenda de um profissional recém-cadastrado com 3 exemplos: uma vaga liberada (com o
-// mesmo paciente já solicitando outro horário), uma consulta comum e uma urgência pendente de confirmação.
 const seedConsultasDemo = async (profissionalId) => {
   try {
     const [pacA, pacB, pacC, pacD] = await Promise.all(PACIENTES_DEMO.map(obterOuCriarPacienteDemo));
@@ -178,8 +177,6 @@ const seedConsultasDemo = async (profissionalId) => {
     const emTresDias = new Date();
     emTresDias.setDate(emTresDias.getDate() + 3);
 
-    // Paciente A: pediu um novo horário para a consulta dela e o profissional já
-    // confirmou a mudança — fica "Reagendada".
     const reservaAna = await criarReservaDemo({
       nome: PACIENTES_DEMO[0].nome, sobrenome: PACIENTES_DEMO[0].sobrenome,
       telefone: PACIENTES_DEMO[0].telefone, email: PACIENTES_DEMO[0].email,
@@ -197,9 +194,6 @@ const seedConsultasDemo = async (profissionalId) => {
       ]
     );
 
-    // Paciente B: consulta comum, pendente de confirmação, daqui a 2 dias — com o
-    // formulário de anamnese já preenchido (de acordo com a profissão do profissional),
-    // como se o paciente tivesse enviado.
     const reservaBruno = await criarReservaDemo({
       nome: PACIENTES_DEMO[1].nome, sobrenome: PACIENTES_DEMO[1].sobrenome,
       telefone: PACIENTES_DEMO[1].telefone, email: PACIENTES_DEMO[1].email,
@@ -218,7 +212,6 @@ const seedConsultasDemo = async (profissionalId) => {
       ]], (err) => (err ? reject(err) : resolve()));
     });
 
-    // Paciente C: urgência ainda pendente de confirmação, daqui a 2 dias.
     await criarReservaDemo({
       nome: PACIENTES_DEMO[2].nome, sobrenome: PACIENTES_DEMO[2].sobrenome,
       telefone: PACIENTES_DEMO[2].telefone, email: PACIENTES_DEMO[2].email,
@@ -251,30 +244,10 @@ const seedConsultasDemo = async (profissionalId) => {
   }
 };
 
-// Profissional de demonstração usado para já popular "Minhas Consultas" de todo
-// paciente recém-cadastrado, com uma consulta confirmada marcada para o dia seguinte.
-const PROFISSIONAL_DEMO = {
-  nome: 'Fábio', sobrenome: 'Demonstração', email: 'fabio.demo@sistema.local', cpf: '00000000005',
-  telefone: '(11) 90000-0005', tipoProfissional: 'medico', especialidadeMedica: 'Clínico Geral',
-  genero: 'masculino', valorConsulta: '150',
-  // Dados adicionais do perfil para parecer uma conta profissional completa
-  descricao: 'Médico clínico geral com experiência em atendimento de rotina e preventivo. Disponível para consultas presenciais e online.',
-  publicoAtendido: 'Todas as idades',
-  modalidade: 'presencial',
-  valorPresencial: '150',
-  valorOnline: '120',
-  valorDomiciliar: '200',
-  horariosAtendimento: 'Segunda a sexta, 09:00-17:00',
-  diasAtendimento: 'Segunda,Terça,Quarta,Quinta,Sexta',
-  ufRegiao: 'SP',
-  cidade: 'São Paulo',
-};
-
 const obterOuCriarProfissionalDemo = async () => {
   try {
     const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE email = ? LIMIT 1', [PROFISSIONAL_DEMO.email]);
     if (rows.length) {
-      // Se já existe, atualiza os dados para garantir perfil completo e aceitandoConsultas = 1
       try {
         await dbPromise.query(
           `UPDATE usuario SET 
@@ -325,8 +298,6 @@ const obterOuCriarProfissionalDemo = async () => {
   }
 };
 
-// Popula "Minhas Consultas" de um paciente recém-cadastrado com uma consulta já
-// confirmada com o Fábio Demonstração, marcada para o dia seguinte ao cadastro.
 const seedConsultaDemoParaPaciente = async (usuarioId, dadosPaciente) => {
   try {
     const profissionalDemoId = await obterOuCriarProfissionalDemo();
