@@ -139,7 +139,36 @@ router.get('/reservas', async (req, res) => {
     if (!usuario) return res.status(401).json({ error: 'Usuário não encontrado.' });
 
     const isProfissional = usuario.tipoUsuario === 'profissional';
-    const filters = isProfissional ? { profissional_id: req.userId } : { usuario_id: req.userId };
+    const explicitUsuarioId = req.query && req.query.usuario_id !== undefined ? Number(req.query.usuario_id) : null;
+    const explicitProfissionalId = req.query && req.query.profissional_id !== undefined ? Number(req.query.profissional_id) : null;
+
+    let filters;
+
+    // Se há filtro explícito de usuário
+    if (explicitUsuarioId !== null && Number.isFinite(explicitUsuarioId)) {
+      // Só permite se for o próprio usuário
+      if (explicitUsuarioId !== req.userId) {
+        return res.status(403).json({ error: 'Você só pode consultar as suas próprias reservas.' });
+      }
+      filters = { usuario_id: req.userId };
+    }
+    // Se há filtro explícito de profissional
+    else if (explicitProfissionalId !== null && Number.isFinite(explicitProfissionalId)) {
+      // Se é profissional, verifica se é seu próprio id
+      if (isProfissional) {
+        if (explicitProfissionalId !== req.userId) {
+          return res.status(403).json({ error: 'Você só pode consultar a sua própria agenda.' });
+        }
+        filters = { profissional_id: req.userId };
+      } else {
+        // Paciente tentando passar profissional_id? Ignora e usa seu próprio filtro
+        filters = { usuario_id: req.userId };
+      }
+    }
+    // Sem filtro explícito: usa o padrão baseado no tipo do usuário
+    else {
+      filters = isProfissional ? { profissional_id: req.userId } : { usuario_id: req.userId };
+    }
 
     reservasModel.list(filters, async (err, results) => {
       if (err) return res.status(500).json(err);

@@ -65,6 +65,19 @@ describe('GET /reservas — corrigido: não é mais possível listar a agenda de
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
   });
+
+  test('profissional em modo paciente pode pedir apenas suas reservas próprias usando usuario_id', async () => {
+    dbRouter.on(/SELECT tipoUsuario FROM usuario WHERE id/, () => [{ tipoUsuario: 'profissional' }]);
+    dbRouter.on(/SELECT \* FROM reservas WHERE usuario_id = \?/, () => [{ id: 7, usuario_id: 99, profissional_id: 5, status: 'confirmado' }]);
+
+    const res = await request(app)
+      .get('/reservas?usuario_id=99')
+      .set('Authorization', `Bearer ${tokenPara(99)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].usuario_id).toBe(99);
+  });
 });
 
 describe('formulariosView — corrigido: formulário clínico só é visível para quem participa da consulta (IDOR)', () => {
