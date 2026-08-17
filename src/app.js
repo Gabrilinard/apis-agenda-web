@@ -26,8 +26,14 @@ const PROFISSIONAL_DEMO = {
   valorPresencial: '150',
   valorOnline: '120',
   valorDomiciliar: '200',
-  horariosAtendimento: 'Segunda a sexta, 09:00-17:00',
-  diasAtendimento: 'Segunda,Terça,Quarta,Quinta,Sexta',
+  horariosAtendimento: JSON.stringify({
+    Segunda: ['09:00', '17:00'],
+    Terça: ['09:00', '17:00'],
+    Quarta: ['09:00', '17:00'],
+    Quinta: ['09:00', '17:00'],
+    Sexta: ['09:00', '17:00'],
+  }),
+  diasAtendimento: JSON.stringify(['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta']),
   ufRegiao: 'SP',
   cidade: 'São Paulo',
 };
