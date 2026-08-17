@@ -21,10 +21,37 @@ router.get('/profissionais', async (req, res) => {
   });
 });
 
+// IMPORTANTE: Rota de categoria DEVE vir ANTES de :id, senão "/profissionais/medico" 
+// será capturado como ID em vez de categoria
+router.get('/profissionais/:categoria', async (req, res) => {
+  const { categoria } = req.params;
+  const categoriasValidas = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo', 'psicologo'];
+  if (!categoriasValidas.includes(categoria)) {
+    // Se não é uma categoria válida, pode ser um ID numérico - passa para próxima rota
+    return res.status(400).json({ error: 'Categoria inválida' });
+  }
+
+  // Garante que o Fábio Demo existe e está com aceitandoConsultas = 1
+  try {
+    const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE email = ?', ['fabio.demo@sistema.local']);
+    if (rows.length > 0) {
+      await dbPromise.query('UPDATE usuario SET aceitandoConsultas = 1 WHERE id = ?', [rows[0].id]);
+    }
+  } catch (e) {
+    // Ignora erros nesta validação
+  }
+
+  profissionaisModel.listPorCategoria(categoria, (err, results) => {
+    if (err) return res.status(500).json({ error: `Erro ao buscar ${categoria}` });
+    res.json(results);
+  });
+});
+
+// Rota de ID vem POR ÚLTIMO, depois que categorias foram validadas
 router.get('/profissionais/:id', async (req, res) => {
   const { id } = req.params;
   
-  // Verifica se é um ID numérico (não é uma categoria)
+  // Verifica se é um ID numérico
   if (!/^\d+$/.test(id)) {
     return res.status(400).json({ error: 'ID inválido' });
   }
@@ -69,29 +96,6 @@ router.get('/profissionais/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Erro ao buscar profissional' });
   }
-});
-
-router.get('/profissionais/:categoria', async (req, res) => {
-  const { categoria } = req.params;
-  const categoriasValidas = ['medico', 'dentista', 'nutricionista', 'fisioterapeuta', 'fonoaudiologo', 'psicologo'];
-  if (!categoriasValidas.includes(categoria)) {
-    return res.status(400).json({ error: 'Categoria inválida' });
-  }
-
-  // Garante que o Fábio Demo existe e está com aceitandoConsultas = 1
-  try {
-    const [rows] = await dbPromise.query('SELECT id FROM usuario WHERE email = ?', ['fabio.demo@sistema.local']);
-    if (rows.length > 0) {
-      await dbPromise.query('UPDATE usuario SET aceitandoConsultas = 1 WHERE id = ?', [rows[0].id]);
-    }
-  } catch (e) {
-    // Ignora erros nesta validação
-  }
-
-  profissionaisModel.listPorCategoria(categoria, (err, results) => {
-    if (err) return res.status(500).json({ error: `Erro ao buscar ${categoria}` });
-    res.json(results);
-  });
 });
 
 module.exports = router;
