@@ -273,10 +273,17 @@ const emailUrgenciaLembreteProfissional = async ({ profissionalEmail, profission
   `);
 };
 
-const emailUrgenciaLembretePaciente = async ({ pacienteEmail, pacienteNome, profissionalNome, profissionalGenero, horasDecorridas }) => {
+const emailUrgenciaLembretePaciente = async ({ pacienteEmail, pacienteNome, profissionalNome, profissionalGenero, horasDecorridas, isDemo }) => {
   const linkConsultas = `${APP_URL}/minhas-consultas`;
   const linkProfissionais = `${APP_URL}/profissionais`;
   const profissionalTratado = getNomeComTitulo(profissionalGenero, profissionalNome);
+  const avisoDemo = isDemo ? `
+      <p style="color:#666;font-size:13px;margin-top:20px;padding:12px 14px;background:#F7F7F4;border-radius:6px">
+        <strong>Observação:</strong> este e-mail é referente a um ambiente de demonstração e foi enviado apenas uma vez.
+        Em uma solicitação real, você continuaria recebendo este lembrete a cada 1 hora enquanto a resposta do
+        profissional estivesse pendente; para não incomodá-lo(a), optamos por enviar esta mensagem uma única vez.
+      </p>
+  ` : '';
   await send(pacienteEmail, 'Ainda sem resposta à sua urgência — Agende Aqui', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
       <div style="background:#FFF7F0;border-left:4px solid #E8611A;padding:12px 16px;border-radius:6px;margin-bottom:20px">
@@ -293,6 +300,7 @@ const emailUrgenciaLembretePaciente = async ({ pacienteEmail, pacienteNome, prof
         Você também pode acompanhar ou cancelar essa solicitação em
         <a href="${linkConsultas}" style="color:#1B4D3E">Minhas Consultas</a>.
       </p>
+      ${avisoDemo}
     </div>
   `);
 };

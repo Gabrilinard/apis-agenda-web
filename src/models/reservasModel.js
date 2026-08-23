@@ -194,6 +194,7 @@ const editarReserva = async (id, payload) => {
 const listUrgenciasSemRespostaHaUmaHora = async () => {
   const sql = `
     SELECT r.id, r.dia, r.horario, r.descricao_urgencia, r.created_at, r.usuario_id, r.profissional_id,
+           r.lembrete_urgencia_enviado_em,
            pac.nome AS pac_nome, pac.sobrenome AS pac_sobrenome, pac.email AS pac_email, pac.telefone AS pac_telefone,
            prof.nome AS prof_nome, prof.sobrenome AS prof_sobrenome, prof.email AS prof_email, prof.genero AS prof_genero
     FROM reservas r

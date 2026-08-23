@@ -5,6 +5,12 @@ const { emailUrgenciaLembreteProfissional, emailUrgenciaLembretePaciente } = req
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
+const DOMINIO_EMAIL_DEMO = '@sistema.local';
+
+const ehEmailDemo = (email) => (email || '').toLowerCase().endsWith(DOMINIO_EMAIL_DEMO);
+
+const ehReservaDemo = (r) => ehEmailDemo(r.pac_email) || ehEmailDemo(r.prof_email);
+
 const formatHorasDecorridas = (createdAt) => {
   const minutos = Math.max(60, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
   const h = Math.floor(minutos / 60);
@@ -22,6 +28,12 @@ const checkLembretesUrgencia = async () => {
   }
 
   for (const r of urgencias) {
+    const isDemo = ehReservaDemo(r);
+    if (isDemo && r.lembrete_urgencia_enviado_em) {
+      // Já mandamos o lembrete único de demonstração antes — não repete.
+      continue;
+    }
+
     const pacienteNome = `${r.pac_nome || ''} ${r.pac_sobrenome || ''}`.trim();
     const profissionalNome = `${r.prof_nome || ''} ${r.prof_sobrenome || ''}`.trim();
     const horasDecorridas = formatHorasDecorridas(r.created_at);
@@ -42,6 +54,7 @@ const checkLembretesUrgencia = async () => {
         profissionalNome,
         profissionalGenero: r.prof_genero,
         horasDecorridas,
+        isDemo,
       }).catch(e => console.error('[lembrete urgencia] erro e-mail paciente:', e.message)),
       vagasModel.criarNotificacaoProfissional({
         profissional_id: r.profissional_id,
