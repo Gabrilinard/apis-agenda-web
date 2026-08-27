@@ -196,29 +196,73 @@ const updateInformacoes = (id, payload, cb) => {
   pool.query(`UPDATE usuario SET ${updates.join(', ')} WHERE id = ?`, values, cb);
 };
 
+const BLOQUEIO_DIAS = 60;
+
 const contarAusenciasPosConfirmacao = async (usuario_id) => {
-  const [[row]] = await dbPromise.query(
-    "SELECT COUNT(*) AS total FROM reservas WHERE usuario_id = ? AND status = 'ausente' AND presenca_confirmada = 1",
-    [usuario_id]
-  );
+  const [[usuario]] = await dbPromise.query('SELECT bloqueado_ate FROM usuario WHERE id = ?', [usuario_id]);
+  const bloqueioExpirado = usuario?.bloqueado_ate && new Date(usuario.bloqueado_ate) <= new Date();
+
+  const query = bloqueioExpirado
+    ? `SELECT COUNT(*) AS total FROM reservas
+       WHERE usuario_id = ? AND status = 'ausente' AND presenca_confirmada = 1 AND dia > ?`
+    : `SELECT COUNT(*) AS total FROM reservas
+       WHERE usuario_id = ? AND status = 'ausente' AND presenca_confirmada = 1`;
+  const params = bloqueioExpirado ? [usuario_id, usuario.bloqueado_ate] : [usuario_id];
+
+  const [[row]] = await dbPromise.query(query, params);
   return row.total;
 };
-
-const BLOQUEIO_DIAS = 60;
 
 const bloquearTemporariamente = async (usuario_id, motivo) => {
   await dbPromise.query(
     'UPDATE usuario SET bloqueado_ate = NOW() + INTERVAL ? DAY, motivo_bloqueio = ? WHERE id = ?',
     [BLOQUEIO_DIAS, motivo, usuario_id]
   );
-  const [[row]] = await dbPromise.query('SELECT bloqueado_ate FROM usuario WHERE id = ?', [usuario_id]);
+  const [[row]] = await dbPromise.query('SELECT bloqueado_ate, cpf FROM usuario WHERE id = ?', [usuario_id]);
+
+  if (row?.cpf) {
+    // Guarda o bloqueio pelo CPF também: se a conta for excluída e recriada
+    // com o mesmo CPF, o bloqueio precisa continuar valendo (ver aplicarBloqueioCpfSeExistir).
+    await dbPromise.query(
+      `INSERT INTO bloqueios_cpf (cpf, bloqueado_ate, motivo_bloqueio)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         bloqueado_ate = GREATEST(bloqueado_ate, VALUES(bloqueado_ate)),
+         motivo_bloqueio = VALUES(motivo_bloqueio)`,
+      [row.cpf, row.bloqueado_ate, motivo]
+    );
+  }
+
   return row.bloqueado_ate;
+};
+
+const aplicarBloqueioCpfSeExistir = async (usuario_id, cpf) => {
+  const [[row]] = await dbPromise.query('SELECT bloqueado_ate, motivo_bloqueio FROM bloqueios_cpf WHERE cpf = ?', [cpf]);
+  if (!row || !row.bloqueado_ate || new Date(row.bloqueado_ate) <= new Date()) return null;
+
+  await dbPromise.query('UPDATE usuario SET bloqueado_ate = ?, motivo_bloqueio = ? WHERE id = ?', [
+    row.bloqueado_ate,
+    row.motivo_bloqueio,
+    usuario_id,
+  ]);
+  return row;
 };
 
 const getBloqueio = async (usuario_id) => {
   const [[row]] = await dbPromise.query('SELECT bloqueado_ate, motivo_bloqueio FROM usuario WHERE id = ?', [usuario_id]);
   if (!row || !row.bloqueado_ate || new Date(row.bloqueado_ate) <= new Date()) return null;
   return row;
+};
+
+const getStatusAusencia = async (usuario_id) => {
+  const totalAusencias = await contarAusenciasPosConfirmacao(usuario_id);
+  const [[row]] = await dbPromise.query('SELECT bloqueado_ate, motivo_bloqueio FROM usuario WHERE id = ?', [usuario_id]);
+  const bloqueadoAtivo = row && row.bloqueado_ate && new Date(row.bloqueado_ate) > new Date();
+  return {
+    totalAusencias,
+    bloqueadoAte: bloqueadoAtivo ? row.bloqueado_ate : null,
+    motivoBloqueio: bloqueadoAtivo ? row.motivo_bloqueio : null,
+  };
 };
 
 const excluirConta = async (usuarioId) => {
@@ -275,6 +319,8 @@ module.exports = {
   contarAusenciasPosConfirmacao,
   bloquearTemporariamente,
   getBloqueio,
+  getStatusAusencia,
+  aplicarBloqueioCpfSeExistir,
   BLOQUEIO_DIAS,
   excluirConta,
 };
