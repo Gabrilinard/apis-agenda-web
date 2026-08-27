@@ -88,6 +88,16 @@ router.patch('/usuarios/:id/informacoes', (req, res) => {
   });
 });
 
+router.get('/usuarios/:id/status-ausencia', async (req, res) => {
+  if (!exigirDono(req, res)) return;
+  try {
+    const status = await usuariosModel.getStatusAusencia(req.params.id);
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar status de ausência.' });
+  }
+});
+
 router.delete('/usuarios/:id', async (req, res) => {
   if (!exigirDono(req, res)) return;
   try {
