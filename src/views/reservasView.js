@@ -378,6 +378,14 @@ router.put('/reservas/solicitar/:id', async (req, res) => {
   });
 });
 
+router.put('/reservas/marcarAtendido/:id', (req, res) => {
+  reservasModel.setAtendido(req.params.id, (err, result) => {
+    if (err) return res.status(500).json({ success: false, message: 'Erro ao atualizar status' });
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Reserva não encontrada' });
+    res.json({ success: true, message: 'Status atualizado para atendido' });
+  });
+});
+
 router.get('/reservas/extra', (req, res) => {
   reservasModel.listExtra((err, results) => {
     if (err) return res.status(500).json({ error: 'Erro interno do servidor' });
