@@ -621,6 +621,7 @@ router.post('/register', registerLimiter, async (req, res) => {
             }
             res.json({ message: 'Usuário registrado com sucesso!', id: results2.insertId });
             seedConsultasDemo(results2.insertId);
+            usuariosModel.aplicarBloqueioCpfSeExistir(results2.insertId, cpfLimpo).catch(() => {});
           });
         } else {
           return res.status(400).json({ error: `Erro ao registrar: ${err.sqlMessage}` });
@@ -631,6 +632,7 @@ router.post('/register', registerLimiter, async (req, res) => {
         res.json({ message: 'Usuário registrado com sucesso!', id: userId });
         if (tipoUsuario === 'profissional') seedConsultasDemo(userId);
         else seedConsultaDemoParaPaciente(userId, { nome, sobrenome, telefone, email });
+        usuariosModel.aplicarBloqueioCpfSeExistir(userId, cpfLimpo).catch(() => {});
       }
     });
   } catch (error) {
