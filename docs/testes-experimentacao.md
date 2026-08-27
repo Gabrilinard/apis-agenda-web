@@ -51,15 +51,15 @@ A suíte foi executada com `npm test` dentro de `backend/`.
 | `auth.middleware.unit.test.js` | Unitário | 5 | ✅ 5/5 aprovados |
 | `usuariosModel.bloqueio.unit.test.js` | Unitário | 4 | ✅ 4/4 aprovados |
 | `reservas.regras.test.js` | Regra de negócio / Integração | 7 | ✅ 7/7 aprovados |
-| `register.regras.test.js` | Regra de negócio / Integração | 15 | ✅ 15/15 aprovados |
+| `register.regras.test.js` | Regra de negócio / Integração | 16 | ✅ 16/16 aprovados |
 | `vagas.concorrencia.test.js` | Concorrência | 3 | ✅ 3/3 aprovados |
 | `security.test.js` | Segurança | 13 | ✅ 13/13 aprovados |
-| `notificacoes.jobs.test.js` | Unitário | 8 | ✅ 8/8 aprovados |
-| `idor-ampliado.test.js` | Segurança | 19 | ✅ 19/19 aprovados |
+| `notificacoes.jobs.test.js` | Unitário | 9 | ✅ 9/9 aprovados |
+| `idor-ampliado.test.js` | Segurança | 20 | ✅ 20/20 aprovados |
 | `uploads.security.test.js` | Segurança | 7 | ✅ 7/7 aprovados |
 | `seguranca-ampliada2.test.js` | Segurança | 8 | ✅ 8/8 aprovados |
 | `auditoria.test.js` | Segurança | 5 | ✅ 5/5 aprovados |
-| **Total** | | **94** | **94/94 (100%)** |
+| **Total** | | **97** | **97/97 (100%)** |
 
 O arquivo `idor-ampliado.test.js` nasceu de uma segunda rodada de auditoria, mais
 ampla, motivada por uma pergunta direta sobre o quão seguro o sistema realmente estava.
@@ -76,7 +76,7 @@ Tempo total de execução: aproximadamente 14 segundos, sem dependências extern
 
 ## D. Procedimento
 
-Os 94 testes foram organizados em cinco categorias metodológicas:
+Os 97 testes foram organizados em cinco categorias metodológicas:
 
 - **Unitário**: exercita uma função isolada (middleware, regra de modelo, job de
   background), com toda dependência externa substituída por mock.
@@ -151,8 +151,13 @@ independentemente de o cliente ser o site oficial ou uma chamada direta à API.
 O artigo (Seção II-G) afirma que a plataforma "adota esse controle ao exigir, no
 cadastro, o número de registro no conselho correspondente à especialidade declarada
 (...), aceitando apenas um registro por profissional, o que impede perfis duplicados".
-Estes 15 testes verificam, campo a campo, se essas garantias realmente existem no
-`POST /register`.
+Estes 16 testes verificam, campo a campo, se essas garantias realmente existem no
+`POST /register`. Como o arquivo dispara 16 requisições `POST /register` reaproveitando
+a mesma instância da aplicação (mesmo IP simulado em todas as chamadas), o
+`registerLimiter` — que também existe e é aplicado normalmente em produção, com o mesmo
+mecanismo do `loginLimiter` verificado na Seção E.10 (15 tentativas/hora) — é mockado
+aqui: este arquivo testa regras de negócio de cadastro, não o rate limit em si, para não
+acoplar dois tipos diferentes de garantia num único conjunto de testes.
 
 | Teste | Pergunta que responde | Resultado obtido |
 |---|---|---|
@@ -163,6 +168,7 @@ Estes 15 testes verificam, campo a campo, se essas garantias realmente existem n
 | Gênero fora da lista aceita | Valores arbitrários no campo gênero são aceitos? | **Não** — HTTP 400 |
 | E-mail já cadastrado | O sistema impede duas contas com o mesmo e-mail? | **Sim** — HTTP 409 |
 | CPF já cadastrado, sem elegibilidade de upgrade | Um CPF duplicado sempre é bloqueado, mesmo quando não se trata de um paciente virando profissional? | **Sim** — HTTP 409 |
+| Cadastro do mesmo paciente processado duas vezes | A rotina de dados de exemplo que roda uma vez após o cadastro (usada para já popular a tela do usuário recém-criado) cria registros duplicados se disparada mais de uma vez para o mesmo paciente? | **Não** — nenhuma segunda reserva é inserida quando já existe uma reserva de exemplo confirmada para aquele paciente |
 | Profissional sem `tipoProfissional` | O sistema exige que o tipo de profissão seja informado? | **Sim** — HTTP 400 |
 | Médico sem especialidade | A obrigatoriedade da especialidade médica é aplicada no servidor? | **Sim** — HTTP 400 |
 | Profissional "outros" sem profissão customizada | O caso especial "outros" exige o campo livre? | **Sim** — HTTP 400 |
@@ -172,7 +178,7 @@ Estes 15 testes verificam, campo a campo, se essas garantias realmente existem n
 | Número de conselho válido, mas já cadastrado | "Um registro por profissional" é aplicado mesmo com o formato correto? | **Sim** — HTTP 409, perfil duplicado é impedido |
 | Profissional sem UF/Região | A UF do conselho é obrigatória, como a Tabela 26 da ANS pressupõe? | **Sim** — HTTP 400 |
 
-**Resultado do arquivo: 15/15 aprovados.** Todas as garantias de unicidade e formato
+**Resultado do arquivo: 16/16 aprovados.** Todas as garantias de unicidade e formato
 descritas na Seção II-G do artigo se confirmam na prática.
 
 ### E.5 Desempate concorrente do Sistema de Reaproveitamento de Horários (concorrência) — `vagas.concorrencia.test.js`
@@ -286,25 +292,30 @@ compõe os achados desta seção.*
 ### E.7 Rotinas de notificação em segundo plano (unitário) — `notificacoes.jobs.test.js`
 
 O artigo (Seção IV-B) descreve três rotinas assíncronas: o lembrete de confirmação de
-presença ao entrar na janela de 48h, a auto-liberação do horário quando o paciente não
-confirma até 15h antes, e o lembrete horário de urgência sem resposta. Estes 8 testes
-verificam cada rotina isoladamente, inclusive sua resiliência a falhas parciais (por
-exemplo, o provedor de e-mail fora do ar).
+presença — hoje enviado em cinco marcos fixos antes da consulta (48h, 36h, 24h, 18h e
+16h, cada um disparado uma única vez), sendo o de 16h um último aviso destacado por
+faltar apenas 1h para a liberação automática —, a própria auto-liberação do horário
+quando o paciente não confirma até 15h antes, e o lembrete horário de urgência sem
+resposta. Estes 9 testes verificam cada rotina isoladamente, inclusive sua resiliência
+a falhas parciais (por exemplo, o provedor de e-mail fora do ar).
 
 | Teste | Pergunta que responde | Resultado obtido |
 |---|---|---|
-| Reserva entra na janela de 48h sem confirmação prévia | O lembrete de confirmação de presença dispara o e-mail e a notificação interna corretos? | **Sim** — e-mail enviado ao paciente com data/horário formatados, notificação criada, reserva marcada como "lembrete enviado" |
+| Reserva entra no marco de 24h antes da consulta, sem lembrete de 24h enviado ainda | Cada um dos cinco marcos (48h, 36h, 24h, 18h, 16h) dispara o e-mail e a notificação interna corretos, de forma independente e uma única vez por marco? | **Sim** — testado no marco de 24h: e-mail enviado ao paciente com data/horário formatados e o número de horas restantes, notificação interna criada, reserva marcada como "lembrete de 24h enviado" |
+| Reserva entra no marco de 16h antes da consulta | O último aviso (16h) é sinalizado como diferente dos demais, já que a partir dele resta só 1h para a liberação automática (que ocorre às 15h)? | **Sim** — o e-mail troca de assunto ("Última chance — confirme sua presença") e ganha um destaque visual extra avisando que falta 1h para a liberação automática; a reserva é marcada como "lembrete de 16h enviado" |
 | O envio do e-mail de lembrete falha | Uma falha no provedor de e-mail impede que o restante da rotina (notificação interna, marcação de envio) aconteça? | **Não** — o job captura o erro, registra em log e continua normalmente; a notificação interna e a marcação são concluídas de qualquer forma |
-| Nenhuma reserva na janela de 48h | O job evita disparos desnecessários quando não há nada a fazer? | **Sim** — nenhuma chamada de e-mail ou notificação é feita |
+| Nenhuma reserva em nenhum dos cinco marcos | O job evita disparos desnecessários quando não há nada a fazer? | **Sim** — nenhuma chamada de e-mail ou notificação é feita |
 | Reserva chega a 15h da consulta sem confirmação | A auto-liberação realmente libera o horário e avisa as duas partes (paciente e profissional)? | **Sim** — horário liberado, e-mail ao paciente, notificação ao profissional |
 | A liberação no banco falha para uma reserva | O sistema evita avisar paciente e profissional sobre uma liberação que na verdade não ocorreu? | **Sim** — se o `UPDATE` falha, nem o e-mail nem a notificação são disparados para aquela reserva específica |
 | Nenhuma reserva elegível para auto-liberação | O job também evita ações desnecessárias nesse segundo cenário? | **Sim** — nenhuma liberação é executada |
 | Urgência pendente há mais de 1h sem resposta | O lembrete horário de urgência avisa tanto o profissional quanto o paciente, como o artigo descreve ("lembrete por e-mail ao profissional (...) e uma notificação (...) O mesmo ciclo se repete a cada hora")? | **Sim** — dois e-mails, duas notificações internas e a marcação de lembrete enviado, todos disparados numa única passada do job |
 | Nenhuma urgência pendente há mais de 1h | O job fica ocioso quando não há nada pendente? | **Sim** — nenhuma chamada é feita |
 
-**Resultado do arquivo: 8/8 aprovados.** As três rotinas assíncronas funcionam como
-descrito no artigo e continuam operando de forma consistente mesmo diante de falhas
-parciais de um serviço externo (e-mail).
+**Resultado do arquivo: 9/9 aprovados.** As três rotinas assíncronas funcionam como
+descrito no artigo — a de confirmação de presença hoje com um cronograma mais granular
+de cinco avisos, em vez de um único disparo ao entrar na janela de 48h — e continuam
+operando de forma consistente mesmo diante de falhas parciais de um serviço externo
+(e-mail).
 
 ### E.8 Auditoria ampliada de IDOR (segurança) — `idor-ampliado.test.js`
 
@@ -314,12 +325,13 @@ percorrendo cada rota de `reservasView.js`, `formulariosView.js`, `vagasView.js`
 `avaliacoesView.js`, encontrou o mesmo padrão — a rota exige um token válido, mas não
 confere se o dado pedido pertence a quem está pedindo — repetido em **seis pontos
 adicionais**, alguns mais graves que o original por envolverem dados clínicos. Todos
-foram corrigidos; os 19 testes abaixo comprovam a correção.
+foram corrigidos; os 20 testes abaixo comprovam a correção.
 
 | Teste | Pergunta que responde | Resultado obtido |
 |---|---|---|
 | `GET /reservas?profissional_id=X` feita por um paciente | Um paciente autenticado consegue listar as consultas de **todos os pacientes** de um profissional só informando o id dele na query string? | **Não mais** — a rota agora ignora por completo os parâmetros da query string e usa exclusivamente o `req.userId` do token para decidir o filtro. Antes da correção, isso vazava nome, telefone, e-mail, descrição de urgência e o arquivo anexado de cada paciente de um profissional arbitrário |
 | `GET /reservas` feita por um profissional | A correção acima preserva o uso legítimo — o profissional ver a própria agenda? | **Sim** — continua funcionando normalmente |
+| `GET /reservas?usuario_id=X` feita por um profissional logado em modo paciente | Um profissional que também usa o sistema como paciente consegue pedir explicitamente só as próprias reservas como paciente, via `usuario_id`? | **Sim** — continua funcionando, sem reabrir a brecha: o filtro é sempre amarrado ao `req.userId`, então só é possível pedir as próprias reservas, nunca as de outra pessoa |
 | `GET /formularios/reserva/:id` por alguém alheio à consulta | O formulário de pré-consulta (sintomas, histórico de saúde, medicamentos — dado sensível pela LGPD) pode ser lido por qualquer autenticado, bastando adivinhar o número da reserva? | **Não mais** — HTTP 403 para quem não é nem o paciente nem o profissional daquela consulta específica |
 | `GET /formularios/reserva/:id` pelo paciente dono da consulta | A correção preserva o acesso do próprio paciente ao seu formulário? | **Sim** |
 | `GET /formularios/reserva/:id` pelo profissional responsável | E o acesso do profissional que vai atender essa consulta? | **Sim** |
@@ -438,7 +450,7 @@ na tabela.
 
 ## F. Achados e discussão
 
-Do total de 94 testes, **todos confirmam que a implementação corresponde ao que o
+Do total de 97 testes, **todos confirmam que a implementação corresponde ao que o
 artigo descreve ou já foi corrigida para corresponder** — não há, neste momento,
 nenhum achado desta auditoria conhecido e ainda pendente de correção, nem no código
 nem na configuração do ambiente. Os quatro achados abaixo foram encontrados e
@@ -476,7 +488,7 @@ continua legível por qualquer autenticado, pois é a mesma informação já pú
 `/profissionais`, e é assim que o paciente vê o profissional antes de agendar; (2)
 `POST /vagas/recusar` passou a exigir apenas o usuário autenticado (não um token
 adicional), porque o front-end nunca enviou esse token nessa chamada — exigi-lo
-quebraria a funcionalidade real. Os 19 testes da seção E.8 comprovam a correção, e a
+quebraria a funcionalidade real. Os 20 testes da seção E.8 comprovam a correção, e a
 suíte completa permanece 100% aprovada após todas as mudanças.
 
 ### Achado 2 (corrigido) — rota pública exigindo token por erro de montagem do roteador
@@ -600,7 +612,7 @@ pelo próprio autor, confirmando o fluxo completo de ponta a ponta.
 
 ## G. Auditoria de dependências e validação manual contra a aplicação real
 
-Os 94 testes automatizados (itens D–E) rodam com o banco de dados e o provedor de
+Os 97 testes automatizados (itens D–E) rodam com o banco de dados e o provedor de
 e-mail substituídos por mocks — o que garante determinismo, mas não prova, sozinho,
 que a aplicação real (com MySQL e armazenamento de arquivos de verdade) se comporta da
 mesma forma. Dois exames complementares, fora da suíte Jest, foram feitos para cobrir

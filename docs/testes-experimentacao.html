@@ -211,8 +211,8 @@ de e-mail — a suíte inteira roda de forma determinística e isolada.</p>
 <tr>
 <td><code>register.regras.test.js</code></td>
 <td>Regra de negócio / Integração</td>
-<td style="text-align: right;">15</td>
-<td>✅ 15/15 aprovados</td>
+<td style="text-align: right;">16</td>
+<td>✅ 16/16 aprovados</td>
 </tr>
 <tr>
 <td><code>vagas.concorrencia.test.js</code></td>
@@ -229,14 +229,14 @@ de e-mail — a suíte inteira roda de forma determinística e isolada.</p>
 <tr>
 <td><code>notificacoes.jobs.test.js</code></td>
 <td>Unitário</td>
-<td style="text-align: right;">8</td>
-<td>✅ 8/8 aprovados</td>
+<td style="text-align: right;">9</td>
+<td>✅ 9/9 aprovados</td>
 </tr>
 <tr>
 <td><code>idor-ampliado.test.js</code></td>
 <td>Segurança</td>
-<td style="text-align: right;">19</td>
-<td>✅ 19/19 aprovados</td>
+<td style="text-align: right;">20</td>
+<td>✅ 20/20 aprovados</td>
 </tr>
 <tr>
 <td><code>uploads.security.test.js</code></td>
@@ -259,8 +259,8 @@ de e-mail — a suíte inteira roda de forma determinística e isolada.</p>
 <tr>
 <td><strong>Total</strong></td>
 <td></td>
-<td style="text-align: right;"><strong>94</strong></td>
-<td><strong>94/94 (100%)</strong></td>
+<td style="text-align: right;"><strong>97</strong></td>
+<td><strong>97/97 (100%)</strong></td>
 </tr>
 </tbody>
 </table>
@@ -280,7 +280,7 @@ de conta) ficava registrada em lugar nenhum — ver item F.</p>
 <p>Tempo total de execução: aproximadamente 14 segundos, sem
 dependências externas.</p>
 <h2 id="d.-procedimento">D. Procedimento</h2>
-<p>Os 94 testes foram organizados em cinco categorias metodológicas:</p>
+<p>Os 97 testes foram organizados em cinco categorias metodológicas:</p>
 <ul>
 <li><strong>Unitário</strong>: exercita uma função isolada (middleware,
 regra de modelo, job de background), com toda dependência externa
@@ -485,9 +485,17 @@ integração) — <code>register.regras.test.js</code></h3>
 <p>O artigo (Seção II-G) afirma que a plataforma “adota esse controle ao
 exigir, no cadastro, o número de registro no conselho correspondente à
 especialidade declarada (…), aceitando apenas um registro por
-profissional, o que impede perfis duplicados”. Estes 15 testes
+profissional, o que impede perfis duplicados”. Estes 16 testes
 verificam, campo a campo, se essas garantias realmente existem no
-<code>POST /register</code>.</p>
+<code>POST /register</code>. Como o arquivo dispara 16 requisições
+<code>POST /register</code> reaproveitando a mesma instância da
+aplicação (mesmo IP simulado em todas as chamadas), o
+<code>registerLimiter</code> — que também existe e é aplicado
+normalmente em produção, com o mesmo mecanismo do
+<code>loginLimiter</code> verificado na Seção E.10 (15 tentativas/hora)
+— é mockado aqui: este arquivo testa regras de negócio de cadastro, não
+o rate limit em si, para não acoplar dois tipos diferentes de garantia
+num único conjunto de testes.</p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -541,6 +549,14 @@ paciente virando profissional?</td>
 <td><strong>Sim</strong> — HTTP 409</td>
 </tr>
 <tr>
+<td>Cadastro do mesmo paciente processado duas vezes</td>
+<td>A rotina de dados de exemplo que roda uma vez após o cadastro (usada
+para já popular a tela do usuário recém-criado) cria registros
+duplicados se disparada mais de uma vez para o mesmo paciente?</td>
+<td><strong>Não</strong> — nenhuma segunda reserva é inserida quando já
+existe uma reserva de exemplo confirmada para aquele paciente</td>
+</tr>
+<tr>
 <td>Profissional sem <code>tipoProfissional</code></td>
 <td>O sistema exige que o tipo de profissão seja informado?</td>
 <td><strong>Sim</strong> — HTTP 400</td>
@@ -589,7 +605,7 @@ pressupõe?</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Resultado do arquivo: 15/15 aprovados.</strong> Todas as
+<p><strong>Resultado do arquivo: 16/16 aprovados.</strong> Todas as
 garantias de unicidade e formato descritas na Seção II-G do artigo se
 confirmam na prática.</p>
 <h3
@@ -902,11 +918,14 @@ id="e.7-rotinas-de-notificação-em-segundo-plano-unitário-notificacoes.jobs.te
 Rotinas de notificação em segundo plano (unitário) —
 <code>notificacoes.jobs.test.js</code></h3>
 <p>O artigo (Seção IV-B) descreve três rotinas assíncronas: o lembrete
-de confirmação de presença ao entrar na janela de 48h, a auto-liberação
-do horário quando o paciente não confirma até 15h antes, e o lembrete
-horário de urgência sem resposta. Estes 8 testes verificam cada rotina
-isoladamente, inclusive sua resiliência a falhas parciais (por exemplo,
-o provedor de e-mail fora do ar).</p>
+de confirmação de presença — hoje enviado em cinco marcos fixos antes da
+consulta (48h, 36h, 24h, 18h e 16h, cada um disparado uma única vez),
+sendo o de 16h um último aviso destacado por faltar apenas 1h para a
+liberação automática —, a própria auto-liberação do horário quando o
+paciente não confirma até 15h antes, e o lembrete horário de urgência
+sem resposta. Estes 9 testes verificam cada rotina isoladamente,
+inclusive sua resiliência a falhas parciais (por exemplo, o provedor de
+e-mail fora do ar).</p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -922,12 +941,25 @@ o provedor de e-mail fora do ar).</p>
 </thead>
 <tbody>
 <tr>
-<td>Reserva entra na janela de 48h sem confirmação prévia</td>
-<td>O lembrete de confirmação de presença dispara o e-mail e a
-notificação interna corretos?</td>
-<td><strong>Sim</strong> — e-mail enviado ao paciente com data/horário
-formatados, notificação criada, reserva marcada como “lembrete
+<td>Reserva entra no marco de 24h antes da consulta, sem lembrete de 24h
+enviado ainda</td>
+<td>Cada um dos cinco marcos (48h, 36h, 24h, 18h, 16h) dispara o e-mail
+e a notificação interna corretos, de forma independente e uma única vez
+por marco?</td>
+<td><strong>Sim</strong> — testado no marco de 24h: e-mail enviado ao
+paciente com data/horário formatados e o número de horas restantes,
+notificação interna criada, reserva marcada como “lembrete de 24h
 enviado”</td>
+</tr>
+<tr>
+<td>Reserva entra no marco de 16h antes da consulta</td>
+<td>O último aviso (16h) é sinalizado como diferente dos demais, já que
+a partir dele resta só 1h para a liberação automática (que ocorre às
+15h)?</td>
+<td><strong>Sim</strong> — o e-mail troca de assunto (“Última chance —
+confirme sua presença”) e ganha um destaque visual extra avisando que
+falta 1h para a liberação automática; a reserva é marcada como “lembrete
+de 16h enviado”</td>
 </tr>
 <tr>
 <td>O envio do e-mail de lembrete falha</td>
@@ -938,7 +970,7 @@ continua normalmente; a notificação interna e a marcação são concluídas
 de qualquer forma</td>
 </tr>
 <tr>
-<td>Nenhuma reserva na janela de 48h</td>
+<td>Nenhuma reserva em nenhum dos cinco marcos</td>
 <td>O job evita disparos desnecessários quando não há nada a fazer?</td>
 <td><strong>Sim</strong> — nenhuma chamada de e-mail ou notificação é
 feita</td>
@@ -978,8 +1010,10 @@ job</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Resultado do arquivo: 8/8 aprovados.</strong> As três rotinas
-assíncronas funcionam como descrito no artigo e continuam operando de
+<p><strong>Resultado do arquivo: 9/9 aprovados.</strong> As três rotinas
+assíncronas funcionam como descrito no artigo — a de confirmação de
+presença hoje com um cronograma mais granular de cinco avisos, em vez de
+um único disparo ao entrar na janela de 48h — e continuam operando de
 forma consistente mesmo diante de falhas parciais de um serviço externo
 (e-mail).</p>
 <h3
@@ -994,7 +1028,7 @@ sistema? Uma segunda rodada de revisão, percorrendo cada rota de
 mesmo padrão — a rota exige um token válido, mas não confere se o dado
 pedido pertence a quem está pedindo — repetido em <strong>seis pontos
 adicionais</strong>, alguns mais graves que o original por envolverem
-dados clínicos. Todos foram corrigidos; os 19 testes abaixo comprovam a
+dados clínicos. Todos foram corrigidos; os 20 testes abaixo comprovam a
 correção.</p>
 <table>
 <colgroup>
@@ -1027,6 +1061,16 @@ arquivo anexado de cada paciente de um profissional arbitrário</td>
 <td>A correção acima preserva o uso legítimo — o profissional ver a
 própria agenda?</td>
 <td><strong>Sim</strong> — continua funcionando normalmente</td>
+</tr>
+<tr>
+<td><code>GET /reservas?usuario_id=X</code> feita por um profissional
+logado em modo paciente</td>
+<td>Um profissional que também usa o sistema como paciente consegue
+pedir explicitamente só as próprias reservas como paciente, via
+<code>usuario_id</code>?</td>
+<td><strong>Sim</strong> — continua funcionando, sem reabrir a brecha: o
+filtro é sempre amarrado ao <code>req.userId</code>, então só é possível
+pedir as próprias reservas, nunca as de outra pessoa</td>
 </tr>
 <tr>
 <td><code>GET /formularios/reserva/:id</code> por alguém alheio à
@@ -1445,7 +1489,7 @@ manualmente contra o MySQL real (seção G.2): registro, tentativa de
 login com senha errada e login correto de um usuário real geraram
 exatamente as três linhas esperadas na tabela.</p>
 <h2 id="f.-achados-e-discussão">F. Achados e discussão</h2>
-<p>Do total de 94 testes, <strong>todos confirmam que a implementação
+<p>Do total de 97 testes, <strong>todos confirmam que a implementação
 corresponde ao que o artigo descreve ou já foi corrigida para
 corresponder</strong> — não há, neste momento, nenhum achado desta
 auditoria conhecido e ainda pendente de correção, nem no código nem na
@@ -1535,7 +1579,7 @@ qualquer autenticado, pois é a mesma informação já pública em
 antes de agendar; (2) <code>POST /vagas/recusar</code> passou a exigir
 apenas o usuário autenticado (não um token adicional), porque o
 front-end nunca enviou esse token nessa chamada — exigi-lo quebraria a
-funcionalidade real. Os 19 testes da seção E.8 comprovam a correção, e a
+funcionalidade real. Os 20 testes da seção E.8 comprovam a correção, e a
 suíte completa permanece 100% aprovada após todas as mudanças.</p>
 <h3
 id="achado-2-corrigido-rota-pública-exigindo-token-por-erro-de-montagem-do-roteador">Achado
@@ -1695,7 +1739,7 @@ ponta.</p>
 id="g.-auditoria-de-dependências-e-validação-manual-contra-a-aplicação-real">G.
 Auditoria de dependências e validação manual contra a aplicação
 real</h2>
-<p>Os 94 testes automatizados (itens D–E) rodam com o banco de dados e o
+<p>Os 97 testes automatizados (itens D–E) rodam com o banco de dados e o
 provedor de e-mail substituídos por mocks — o que garante determinismo,
 mas não prova, sozinho, que a aplicação real (com MySQL e armazenamento
 de arquivos de verdade) se comporta da mesma forma. Dois exames

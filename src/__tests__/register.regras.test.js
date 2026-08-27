@@ -27,13 +27,18 @@ jest.mock('../email', () => {
   return mocked;
 });
 
+
+jest.mock('../middlewares/rateLimit', () => ({
+  loginLimiter: (req, res, next) => next(),
+  registerLimiter: (req, res, next) => next(),
+  forgotPasswordLimiter: (req, res, next) => next(),
+}));
+
 const { createApp } = require('../app');
 const dbRouter = require('../db').__router;
 
 const app = createApp();
 
-// CPFs válidos (dígitos verificadores corretos) gerados pelo mesmo algoritmo usado
-// em authView.js, só para não colidir com o teste de "CPF inválido".
 const CPF_VALIDO_1 = '12345678909';
 const CPF_VALIDO_2 = '52998224725';
 
