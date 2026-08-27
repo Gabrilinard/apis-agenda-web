@@ -56,7 +56,8 @@ describe('usuariosModel.bloquearTemporariamente (unitário)', () => {
       diasUsados = params[0];
       return { affectedRows: 1 };
     });
-    router.on(/SELECT bloqueado_ate FROM usuario WHERE id/, () => [{ bloqueado_ate: '2099-01-01' }]);
+    router.on(/SELECT bloqueado_ate, cpf FROM usuario WHERE id/, () => [{ bloqueado_ate: '2099-01-01', cpf: '12345678900' }]);
+    router.on(/INSERT INTO bloqueios_cpf/, () => ({ affectedRows: 1 }));
 
     await usuariosModel.bloquearTemporariamente(5, 'motivo teste');
 
