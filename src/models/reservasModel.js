@@ -137,6 +137,10 @@ const setAusente = (id, motivoFalta, cb) => {
   pool.query('UPDATE reservas SET status = ?, motivoFalta = ? WHERE id = ?', ['ausente', motivoFalta, id], cb);
 };
 
+const setAtendido = (id, cb) => {
+  pool.query('UPDATE reservas SET status = ?, motivoFalta = NULL WHERE id = ?', ['confirmado', id], cb);
+};
+
 const listExtra = (cb) => {
   const query = `
     SELECT 
@@ -215,7 +219,16 @@ const marcarLembreteUrgenciaEnviado = async (id) => {
   await dbPromise.query('UPDATE reservas SET lembrete_urgencia_enviado_em = NOW() WHERE id = ?', [id]);
 };
 
-const listParaLembretePresenca = async () => {
+const COLUNA_LEMBRETE_PRESENCA = {
+  48: 'lembrete_presenca_48h',
+  36: 'lembrete_presenca_36h',
+  24: 'lembrete_presenca_24h',
+  18: 'lembrete_presenca_18h',
+  16: 'lembrete_presenca_16h',
+};
+
+const listParaLembretePresenca = async (horas) => {
+  const coluna = COLUNA_LEMBRETE_PRESENCA[horas];
   const sql = `
     SELECT r.id, r.dia, r.horario, r.usuario_id,
            pac.nome AS pac_nome, pac.sobrenome AS pac_sobrenome, pac.email AS pac_email,
@@ -225,17 +238,18 @@ const listParaLembretePresenca = async () => {
     LEFT JOIN usuario prof ON r.profissional_id = prof.id
     WHERE r.status = 'confirmado'
       AND r.presenca_confirmada = 0
-      AND r.confirmacao_presenca_enviada = 0
+      AND r.${coluna} = 0
       AND TIMESTAMP(r.dia, r.horario) > NOW()
-      AND TIMESTAMP(r.dia, r.horario) <= NOW() + INTERVAL 48 HOUR
+      AND TIMESTAMP(r.dia, r.horario) <= NOW() + INTERVAL ${horas} HOUR
       AND pac.email IS NOT NULL
   `;
   const [rows] = await dbPromise.query(sql);
   return rows;
 };
 
-const marcarConfirmacaoPresencaEnviada = async (id) => {
-  await dbPromise.query('UPDATE reservas SET confirmacao_presenca_enviada = 1 WHERE id = ?', [id]);
+const marcarLembretePresencaEnviado = async (id, horas) => {
+  const coluna = COLUNA_LEMBRETE_PRESENCA[horas];
+  await dbPromise.query(`UPDATE reservas SET ${coluna} = 1 WHERE id = ?`, [id]);
 };
 
 const confirmarPresenca = async (id, usuario_id) => {
@@ -259,7 +273,7 @@ const listParaAutoLiberarPorFaltaConfirmacao = async () => {
     LEFT JOIN usuario prof ON r.profissional_id = prof.id
     WHERE r.status = 'confirmado'
       AND r.presenca_confirmada = 0
-      AND r.confirmacao_presenca_enviada = 1
+      AND (r.lembrete_presenca_48h = 1 OR r.lembrete_presenca_36h = 1 OR r.lembrete_presenca_24h = 1 OR r.lembrete_presenca_18h = 1 OR r.lembrete_presenca_16h = 1)
       AND TIMESTAMP(r.dia, r.horario) > NOW()
       AND TIMESTAMP(r.dia, r.horario) <= NOW() + INTERVAL 15 HOUR
   `;
@@ -282,13 +296,14 @@ module.exports = {
   updateReserva,
   deleteById,
   setAusente,
+  setAtendido,
   listExtra,
   setNegado,
   editarReserva,
   negarConflitantes,
   getConflitantes,
   listParaLembretePresenca,
-  marcarConfirmacaoPresencaEnviada,
+  marcarLembretePresencaEnviado,
   confirmarPresenca,
   listParaAutoLiberarPorFaltaConfirmacao,
   autoLiberarPorFaltaConfirmacao,
