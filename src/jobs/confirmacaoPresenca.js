@@ -5,19 +5,15 @@ const { emailConfirmarPresenca, emailHorarioLiberadoPorFaltaConfirmacao } = requ
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
+const HORAS_LEMBRETE_PRESENCA = [48, 36, 24, 18, 16];
+
 const formatarDataBR = (dia) => {
   const [ano, mes, diaNum] = String(dia).split('T')[0].split('-');
   return `${diaNum}/${mes}/${ano}`;
 };
 
-const checkLembretesPresenca = async () => {
-  let reservas;
-  try {
-    reservas = await reservasModel.listParaLembretePresenca();
-  } catch (e) {
-    console.error('[confirmacao presenca] erro ao buscar reservas para lembrete:', e.message);
-    return;
-  }
+const enviarLembretesHoras = async (reservas, horas) => {
+  const ultimoAviso = horas === 16; // faltando só 1h para a liberação automática (às 15h)
 
   for (const r of reservas) {
     const pacienteNome = `${r.pac_nome || ''} ${r.pac_sobrenome || ''}`.trim();
@@ -31,6 +27,8 @@ const checkLembretesPresenca = async () => {
         profissionalGenero: r.prof_genero,
         dia: formatarDataBR(r.dia),
         horario: r.horario,
+        horasRestantes: horas,
+        ultimoAviso,
       });
     } catch (e) {
       console.error('[confirmacao presenca] erro ao enviar e-mail de lembrete:', e.message);
@@ -40,16 +38,32 @@ const checkLembretesPresenca = async () => {
       await notificacoesPacienteModel.criar({
         usuario_id: r.usuario_id,
         reserva_id: r.id,
-        mensagem: `Sua consulta com ${profissionalNome} é em breve (${formatarDataBR(r.dia)} às ${r.horario}). Confirme sua presença.`,
+        mensagem: ultimoAviso
+          ? `Falta 1h para a liberação automática do seu horário com ${profissionalNome} (${formatarDataBR(r.dia)} às ${r.horario}). Confirme presença agora.`
+          : `Sua consulta com ${profissionalNome} é em breve (${formatarDataBR(r.dia)} às ${r.horario}). Confirme sua presença.`,
       });
     } catch (e) {
       console.error('[confirmacao presenca] erro notificacao paciente:', e.message);
     }
 
     try {
-      await reservasModel.marcarConfirmacaoPresencaEnviada(r.id);
+      await reservasModel.marcarLembretePresencaEnviado(r.id, horas);
     } catch (e) {
       console.error('[confirmacao presenca] erro ao marcar lembrete enviado:', e.message);
+    }
+  }
+};
+
+// Avisos únicos de confirmação de presença: 48h, 36h, 24h e 18h antes da
+// consulta, e um último às 16h avisando que falta só 1h para a liberação
+// automática do horário, que acontece às 15h (ver checkAutoLiberacao).
+const checkLembretesPresenca = async () => {
+  for (const horas of HORAS_LEMBRETE_PRESENCA) {
+    try {
+      const reservas = await reservasModel.listParaLembretePresenca(horas);
+      await enviarLembretesHoras(reservas, horas);
+    } catch (e) {
+      console.error(`[confirmacao presenca] erro ao buscar reservas para lembrete (${horas}h):`, e.message);
     }
   }
 };

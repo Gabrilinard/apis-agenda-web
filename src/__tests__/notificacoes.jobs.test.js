@@ -21,47 +21,69 @@ const { checkLembretesUrgencia } = require('../jobs/urgenciaLembrete');
 
 beforeEach(() => jest.clearAllMocks());
 
-describe('checkLembretesPresenca — lembrete de confirmação ao entrar na janela de 48h', () => {
-  test('envia e-mail, cria notificação ao paciente e marca o lembrete como enviado', async () => {
-    reservasModel.listParaLembretePresenca.mockResolvedValue([
+describe('checkLembretesPresenca — avisos únicos às 24h, 18h e 16h antes da consulta', () => {
+  beforeEach(() => {
+    reservasModel.listParaLembretePresenca.mockResolvedValue([]);
+  });
+
+  test('aviso de 24h: envia e-mail, cria notificação ao paciente e marca o lembrete de 24h', async () => {
+    reservasModel.listParaLembretePresenca.mockImplementation(async (horas) => horas === 24 ? [
       {
         id: 10, dia: '2099-06-10', horario: '09:00', usuario_id: 1,
         pac_nome: 'Ana', pac_sobrenome: 'Silva', pac_email: 'ana@teste.com',
         prof_nome: 'Carlos', prof_sobrenome: 'Souza', prof_genero: 'masculino',
       },
-    ]);
+    ] : []);
     email.emailConfirmarPresenca.mockResolvedValue(undefined);
     notificacoesPacienteModel.criar.mockResolvedValue(undefined);
-    reservasModel.marcarConfirmacaoPresencaEnviada.mockResolvedValue(undefined);
+    reservasModel.marcarLembretePresencaEnviado.mockResolvedValue(undefined);
 
     await checkLembretesPresenca();
 
     expect(email.emailConfirmarPresenca).toHaveBeenCalledWith(
-      expect.objectContaining({ pacienteEmail: 'ana@teste.com', pacienteNome: 'Ana Silva', dia: '10/06/2099', horario: '09:00' })
+      expect.objectContaining({ pacienteEmail: 'ana@teste.com', pacienteNome: 'Ana Silva', dia: '10/06/2099', horario: '09:00', horasRestantes: 24, ultimoAviso: false })
     );
     expect(notificacoesPacienteModel.criar).toHaveBeenCalledWith(
       expect.objectContaining({ usuario_id: 1, reserva_id: 10 })
     );
-    expect(reservasModel.marcarConfirmacaoPresencaEnviada).toHaveBeenCalledWith(10);
+    expect(reservasModel.marcarLembretePresencaEnviado).toHaveBeenCalledWith(10, 24);
+  });
+
+  test('aviso de 16h: envia e-mail marcado como último aviso e marca o lembrete de 16h', async () => {
+    reservasModel.listParaLembretePresenca.mockImplementation(async (horas) => horas === 16 ? [
+      {
+        id: 12, dia: '2099-06-10', horario: '09:00', usuario_id: 3,
+        pac_nome: 'Carla', pac_sobrenome: 'Reis', pac_email: 'carla@teste.com',
+        prof_nome: 'Carlos', prof_sobrenome: 'Souza', prof_genero: 'masculino',
+      },
+    ] : []);
+    email.emailConfirmarPresenca.mockResolvedValue(undefined);
+    notificacoesPacienteModel.criar.mockResolvedValue(undefined);
+    reservasModel.marcarLembretePresencaEnviado.mockResolvedValue(undefined);
+
+    await checkLembretesPresenca();
+
+    expect(email.emailConfirmarPresenca).toHaveBeenCalledWith(
+      expect.objectContaining({ pacienteEmail: 'carla@teste.com', horasRestantes: 16, ultimoAviso: true })
+    );
+    expect(reservasModel.marcarLembretePresencaEnviado).toHaveBeenCalledWith(12, 16);
   });
 
   test('continua e marca o envio mesmo se o e-mail falhar (não trava o job por causa de uma falha isolada)', async () => {
-    reservasModel.listParaLembretePresenca.mockResolvedValue([
+    reservasModel.listParaLembretePresenca.mockImplementation(async (horas) => horas === 24 ? [
       { id: 11, dia: '2099-06-11', horario: '10:00', usuario_id: 2, pac_nome: 'Bruno', pac_sobrenome: 'Lima', pac_email: 'bruno@teste.com', prof_nome: 'Dra', prof_sobrenome: 'X', prof_genero: 'feminino' },
-    ]);
+    ] : []);
     email.emailConfirmarPresenca.mockRejectedValue(new Error('falha no provedor de e-mail'));
     notificacoesPacienteModel.criar.mockResolvedValue(undefined);
-    reservasModel.marcarConfirmacaoPresencaEnviada.mockResolvedValue(undefined);
+    reservasModel.marcarLembretePresencaEnviado.mockResolvedValue(undefined);
 
     await expect(checkLembretesPresenca()).resolves.not.toThrow();
 
     expect(notificacoesPacienteModel.criar).toHaveBeenCalled();
-    expect(reservasModel.marcarConfirmacaoPresencaEnviada).toHaveBeenCalledWith(11);
+    expect(reservasModel.marcarLembretePresencaEnviado).toHaveBeenCalledWith(11, 24);
   });
 
-  test('não faz nada quando não há reservas na janela (lista vazia)', async () => {
-    reservasModel.listParaLembretePresenca.mockResolvedValue([]);
-
+  test('não faz nada quando não há reservas em nenhum dos três horários (listas vazias)', async () => {
     await checkLembretesPresenca();
 
     expect(email.emailConfirmarPresenca).not.toHaveBeenCalled();

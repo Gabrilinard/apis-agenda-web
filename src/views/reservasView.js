@@ -6,7 +6,7 @@ const profissionaisModel = require('../models/profissionaisModel');
 const usuariosModel = require('../models/usuariosModel');
 const vagasModel = require('../models/vagasModel');
 const notificacoesPacienteModel = require('../models/notificacoesPacienteModel');
-const { emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada } = require('../email');
+const { emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada, emailBloqueioPaciente } = require('../email');
 const { authenticate } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -353,15 +353,23 @@ router.put('/reservas/solicitar/:id', async (req, res) => {
       try {
         const total = await usuariosModel.contarAusenciasPosConfirmacao(reservaAntes.usuario_id);
         if (total >= 2) {
-          const ate = await usuariosModel.bloquearTemporariamente(
-            reservaAntes.usuario_id,
-            'Ausência em consultas já confirmadas por você (2ª ocorrência ou mais).'
-          );
+          const motivo = 'Ausência em consultas já confirmadas por você (2ª ocorrência ou mais).';
+          const ate = await usuariosModel.bloquearTemporariamente(reservaAntes.usuario_id, motivo);
           const ateFmt = new Date(ate).toLocaleDateString('pt-BR');
           notificacoesPacienteModel.criar({
             usuario_id: reservaAntes.usuario_id,
             mensagem: `Você foi bloqueado temporariamente para novos agendamentos por ter faltado a consultas que já havia confirmado presença. Você poderá agendar novamente a partir de ${ateFmt}.`,
           }).catch(e => console.error('[bloqueio notificacao paciente]', e.message));
+
+          const [[paciente]] = await dbPromise.query('SELECT nome, sobrenome, email FROM usuario WHERE id = ? LIMIT 1', [reservaAntes.usuario_id]);
+          if (paciente?.email) {
+            emailBloqueioPaciente({
+              pacienteEmail: paciente.email,
+              pacienteNome: `${paciente.nome} ${paciente.sobrenome}`.trim(),
+              motivo,
+              bloqueadoAte: ateFmt,
+            }).catch(e => console.error('[bloqueio email paciente]', e.message));
+          }
         }
       } catch (e) {
         console.error('[bloqueio por ausencia]', e.message);

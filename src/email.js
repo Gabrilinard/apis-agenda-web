@@ -305,18 +305,25 @@ const emailUrgenciaLembretePaciente = async ({ pacienteEmail, pacienteNome, prof
   `);
 };
 
-const emailConfirmarPresenca = async ({ pacienteEmail, pacienteNome, profissionalNome, profissionalGenero, dia, horario }) => {
+const emailConfirmarPresenca = async ({ pacienteEmail, pacienteNome, profissionalNome, profissionalGenero, dia, horario, horasRestantes, ultimoAviso }) => {
   const linkConsultas = `${APP_URL}/minhas-consultas`;
   const profissionalTratado = getNomeComTitulo(profissionalGenero, profissionalNome);
-  await send(pacienteEmail, 'Confirme sua presença — Agende Aqui', `
+  const faltamStr = horasRestantes ? `faltam cerca de <strong>${horasRestantes}h</strong>` : 'está chegando';
+  const avisoUltimo = ultimoAviso ? `
+      <p style="color:#991B1B;font-weight:700;font-size:13px;background:#FEE2E2;padding:10px 14px;border-radius:6px;margin-top:16px">
+        ⚠ Falta apenas 1 hora para a liberação automática do horário — confirme agora para não perdê-lo.
+      </p>
+  ` : '';
+  await send(pacienteEmail, ultimoAviso ? 'Última chance — confirme sua presença — Agende Aqui' : 'Confirme sua presença — Agende Aqui', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
       <h2 style="color:#1B4D3E">Sua consulta está chegando!</h2>
       <p>Olá <strong>${pacienteNome}</strong>,</p>
-      <p>Sua consulta com <strong>${profissionalTratado}</strong> é no dia <strong>${dia}</strong> às <strong>${horario}</strong> — menos de 48h.</p>
+      <p>Sua consulta com <strong>${profissionalTratado}</strong> é no dia <strong>${dia}</strong> às <strong>${horario}</strong> — ${faltamStr}.</p>
       <p>Você confirma presença? Se não puder comparecer, libere o horário para que outro paciente possa aproveitá-lo.</p>
       <a href="${linkConsultas}" style="display:inline-block;background:#1B4D3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:8px">
         Confirmar presença
       </a>
+      ${avisoUltimo}
       <p style="color:#888;font-size:12px;margin-top:16px">Se você não confirmar presença até 15 horas antes do horário marcado, ele será liberado automaticamente para outro paciente.</p>
       <p style="color:#888;font-size:12px;margin-top:8px"><strong>Atenção:</strong> se você confirmar presença mas ainda assim faltar, e isso acontecer pela 2ª vez, sua conta fica temporariamente impedida de agendar novas consultas por 60 dias.</p>
     </div>
@@ -346,6 +353,25 @@ const emailHorarioLiberadoPorFaltaConfirmacao = async ({ pacienteEmail, paciente
   `);
 };
 
+const emailBloqueioPaciente = async ({ pacienteEmail, pacienteNome, motivo, bloqueadoAte }) => {
+  const linkConsultas = `${APP_URL}/minhas-consultas`;
+  await send(pacienteEmail, 'Sua conta foi temporariamente bloqueada — Agende Aqui', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <div style="background:#FEE2E2;border-left:4px solid #EF4444;padding:12px 16px;border-radius:6px;margin-bottom:20px">
+        <span style="color:#991B1B;font-weight:700;font-size:13px">⚠ CONTA BLOQUEADA TEMPORARIAMENTE</span>
+      </div>
+      <h2 style="color:#1B4D3E">Você não pode agendar novas consultas por 60 dias</h2>
+      <p>Olá <strong>${pacienteNome}</strong>,</p>
+      <p>${motivo || 'Você faltou a uma consulta que já havia confirmado presença, pela 2ª vez ou mais.'}</p>
+      <p>Por isso, sua conta ficou temporariamente impedida de agendar novas consultas até <strong>${bloqueadoAte}</strong>.</p>
+      <p style="color:#666;font-size:13px;margin-top:20px">
+        Consultas já confirmadas continuam valendo normalmente. Você pode acompanhá-las em
+        <a href="${linkConsultas}" style="color:#1B4D3E">Minhas Consultas</a>.
+      </p>
+    </div>
+  `);
+};
+
 const emailRedefinicaoSenha = async ({ userEmail, userName, token }) => {
   const link = `${APP_URL}/ResetPassword?token=${token}`;
   await send(userEmail, 'Redefinição de senha — Agende Aqui', `
@@ -362,4 +388,4 @@ const emailRedefinicaoSenha = async ({ userEmail, userName, token }) => {
   `);
 };
 
-module.exports = { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga, emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada, emailUrgenciaLembreteProfissional, emailUrgenciaLembretePaciente, emailConfirmarPresenca, emailHorarioLiberadoPorFaltaConfirmacao, emailRedefinicaoSenha };
+module.exports = { emailLiberacaoSlot, emailNotificacaoVaga, emailConfirmacaoVaga, emailNovaConsulta, emailConsultaConfirmada, emailConsultaRemarcada, emailConsultaNegada, emailNovaUrgencia, emailUrgenciaAceita, emailUrgenciaRemarcada, emailUrgenciaLembreteProfissional, emailUrgenciaLembretePaciente, emailConfirmarPresenca, emailHorarioLiberadoPorFaltaConfirmacao, emailBloqueioPaciente, emailRedefinicaoSenha };
