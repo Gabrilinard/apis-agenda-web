@@ -16,6 +16,7 @@ const listProfissionais = (cb) => {
       u.sobrenome,
       CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
       u.tipoProfissional,
+      u.genero,
       u.email,
       u.telefone
     FROM usuario u
@@ -74,6 +75,7 @@ const listPorCategoria = (categoria, cb) => {
       u.id,
       CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
       u.tipoProfissional,
+      u.genero,
       u.email,
       u.telefone,
       u.ufRegiao,

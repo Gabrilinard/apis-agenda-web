@@ -9,7 +9,8 @@ const serializeLogin = (user, token) => {
       email: user.email,
       cpf: user.cpf || null,
       genero: user.genero || null,
-      tipoUsuario: user.tipoUsuario || 'paciente'
+      tipoUsuario: user.tipoUsuario || 'paciente',
+      tipoProfissional: user.tipoProfissional || null
     }
   };
 };

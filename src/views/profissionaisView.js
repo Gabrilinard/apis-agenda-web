@@ -66,6 +66,7 @@ router.get('/profissionais/:id', async (req, res) => {
         CONCAT(u.nome, ' ', u.sobrenome) as nomeCompleto,
         u.tipoProfissional,
         u.especialidadeMedica,
+        u.genero,
         u.email,
         u.telefone,
         u.ufRegiao,

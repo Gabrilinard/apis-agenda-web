@@ -6,7 +6,7 @@ const findByEmail = async (email) => {
 };
 
 const findBasicById = (id, cb) => {
-  pool.query('SELECT id, nome, email, tipoUsuario FROM usuario WHERE id = ? LIMIT 1', [id], (err, rows) => {
+  pool.query('SELECT id, nome, sobrenome, telefone, email, cpf, genero, tipoUsuario, tipoProfissional FROM usuario WHERE id = ? LIMIT 1', [id], (err, rows) => {
     if (err) return cb(err);
     cb(null, rows && rows[0] ? rows[0] : null);
   });
