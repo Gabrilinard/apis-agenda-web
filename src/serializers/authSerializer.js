@@ -10,7 +10,8 @@ const serializeLogin = (user, token) => {
       cpf: user.cpf || null,
       genero: user.genero || null,
       tipoUsuario: user.tipoUsuario || 'paciente',
-      tipoProfissional: user.tipoProfissional || null
+      tipoProfissional: user.tipoProfissional || null,
+      aceitandoConsultas: Number(user.aceitandoConsultas)
     }
   };
 };

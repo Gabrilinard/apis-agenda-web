@@ -121,5 +121,23 @@ router.delete('/usuarios/:id', async (req, res) => {
   }
 });
 
+router.delete('/usuarios/:id/perfil-profissional', async (req, res) => {
+  if (!exigirDono(req, res)) return;
+  try {
+    auditModel.registrar({
+      usuarioId: req.userId,
+      evento: 'exclusao_perfil_profissional',
+      sucesso: true,
+      ip: req.ip,
+      detalhe: `usuario ${req.userId} removeu o perfil profissional`,
+    });
+    const affectedRows = await usuariosModel.removerPerfilProfissional(req.params.id);
+    if (!affectedRows) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    res.json({ message: 'Perfil profissional removido com sucesso.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao remover perfil profissional.' });
+  }
+});
+
 module.exports = router;
 

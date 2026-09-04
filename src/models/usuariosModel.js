@@ -296,6 +296,41 @@ const excluirConta = async (usuarioId) => {
   return { affectedRows: result.affectedRows, arquivosLocais };
 };
 
+// Remove só o lado profissional da conta: a conta em si (login, histórico como
+// paciente) continua existindo, mas volta a ser uma conta comum de paciente.
+const removerPerfilProfissional = async (usuarioId) => {
+  await dbPromise.query('DELETE FROM notificacoes_vaga WHERE profissional_id = ?', [usuarioId]);
+  await dbPromise.query('DELETE FROM notificacoes_profissional WHERE profissional_id = ?', [usuarioId]);
+  await dbPromise.query('UPDATE reservas SET profissional_id = NULL WHERE profissional_id = ?', [usuarioId]);
+
+  const [result] = await dbPromise.query(
+    `UPDATE usuario SET
+       tipoUsuario = 'paciente',
+       fazParteEmpresa = 0,
+       nomeEmpresa = NULL,
+       tipoProfissional = NULL,
+       especialidadeMedica = NULL,
+       profissaoCustomizada = NULL,
+       horarioTreino = NULL,
+       numeroConselho = NULL,
+       descricao = NULL,
+       publicoAtendido = NULL,
+       modalidade = NULL,
+       empresa_id = NULL,
+       valorConsulta = NULL,
+       diasAtendimento = NULL,
+       horariosAtendimento = NULL,
+       tempoAtendimento = NULL,
+       valorPresencial = NULL,
+       valorOnline = NULL,
+       valorDomiciliar = NULL,
+       aceitandoConsultas = 0
+     WHERE id = ?`,
+    [usuarioId]
+  );
+  return result.affectedRows;
+};
+
 module.exports = {
   findByEmail,
   findBasicById,
@@ -323,5 +358,6 @@ module.exports = {
   aplicarBloqueioCpfSeExistir,
   BLOQUEIO_DIAS,
   excluirConta,
+  removerPerfilProfissional,
 };
 
